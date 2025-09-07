@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const lineKeySeparator = "\x00"
+
 var survivalLast string
 var survivalPath string
 var survivalDebug bool
@@ -166,7 +168,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 							if strings.TrimSpace(l) == "" {
 								continue
 							}
-							key := filename + "\x00" + l
+							key := filename + lineKeySeparator + l
 							added[key] = addedLine{
 								File: filename,
 								Line: l,
@@ -215,7 +217,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 				if strings.TrimSpace(l) == "" {
 					continue
 				}
-				key := f.Name + "\x00" + l
+				key := f.Name + lineKeySeparator + l
 				if _, ok := added[key]; ok {
 					survived++
 				}
@@ -235,8 +237,8 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 		}
 
 		if survivalDebug {
-			log.Printf("[survival] Introduced: %d, Deleted: %d, Surviving: %d, Rate: %.2f%%",
-				totalAdded, 0, survived, percent)
+			log.Printf("[survival] Introduced: %d, Surviving: %d, Rate: %.2f%%",
+				totalAdded, survived, percent)
 		}
 
 		printSurvivalStats(totalAdded, survived, percent)
