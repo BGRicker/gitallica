@@ -37,6 +37,10 @@ const contentPreviewLength = 40
 // previewSuffix is appended when content is truncated for logs.
 const previewSuffix = "..."
 
+
+// researchNote contains a short reference used in CLI output about healthy survival rates.
+const researchNote = "Healthy survival rates are typically above ~50% after 12 months (MSR, CodeScene research)."
+
 func previewContent(s string) string {
 	if len(s) > contentPreviewLength {
 		return s[:contentPreviewLength] + previewSuffix
@@ -62,7 +66,7 @@ func printSurvivalStats(totalAdded, survived int, percent float64) {
 	fmt.Printf("  Lines added:    %d\n", totalAdded)
 	fmt.Printf("  Still present:  %d\n", survived)
 	fmt.Printf("  Survival rate:  %.2f%%\n", percent)
-	fmt.Println("Healthy survival rates are typically above ~50% after 12 months (MSR, CodeScene research).")
+	fmt.Println(researchNote)
 	fmt.Println()
 }
 
@@ -240,7 +244,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 					continue
 				}
 				key := makeKey(f.Name, l)
-				if count, ok := added[key]; ok && count > 0 {
+				if count, ok := added[key]; ok {
 					survived++
 					if count == 1 {
 						delete(added, key)
@@ -255,10 +259,14 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 			log.Fatalf("Failed to walk HEAD tree: %v", err)
 		}
 
+		// Sanity check: the number of surviving lines must never exceed the number of lines added.
+		if survived > totalAdded {
+			log.Fatalf("[survival][error] Surviving lines (%d) exceed lines added (%d). This indicates a counting bug or data inconsistency.", survived, totalAdded)
+		}
 		percent := float64(survived) / float64(totalAdded) * 100
-		if percent > 100 || percent < 0 {
-			log.Fatalf("[survival][error] Calculated survival rate out of bounds: survived=%d, totalAdded=%d, percent=%.2f%%. This may indicate a bug or data inconsistency. Please check your repository history and parameters.",
-				survived, totalAdded, percent)
+		// A negative percentage would indicate a serious bug (should be mathematically impossible here).
+		if percent < 0 {
+			log.Fatalf("[survival][error] Negative survival rate (%.2f%%). This indicates a counting bug or data inconsistency.", percent)
 		}
 
 		if survivalDebug {
