@@ -7,9 +7,31 @@
 
 ---
 
+## 🛠️ Installation
+
+### **From Source**
+```bash
+git clone https://github.com/bgricker/gitallica.git
+cd gitallica
+go build -o gitallica .
+sudo mv gitallica /usr/local/bin/
+```
+
+### **Using Go Install**
+```bash
+go install github.com/bgricker/gitallica@latest
+```
+
+### **Requirements**
+- Go 1.21+ (for building from source)
+- Git repository (run from within a git repo)
+
+---
+
 ## 🚀 Usage
 
-Here are some examples of how to use the **gitallica** CLI to analyze churn:
+### **Churn Analysis**
+Analyze additions vs deletions ratio to understand codebase growth patterns:
 
 ```bash
 gitallica churn
@@ -26,6 +48,61 @@ gitallica churn --path cmd/
 ```
 Shows churn scoped to the `cmd/` directory.
 
+### **Code Survival Analysis**
+Check how many lines survive over time compared to how many were added:
+
+```bash
+gitallica survival
+```
+Shows code survival rate across the entire history.
+
+```bash
+gitallica survival --last 3m
+```
+Shows code survival rate for the last 3 months.
+
+```bash
+gitallica survival --path src/ --debug
+```
+Shows code survival rate scoped to the `src/` directory with debug output.
+
+### **High-Churn Files & Directories**
+Identify files and directories with the highest churn rates:
+
+```bash
+gitallica churn-files
+```
+Shows top 10 files by churn percentage.
+
+```bash
+gitallica churn-files --limit 5 --directories
+```
+Shows top 5 files and directories by churn.
+
+```bash
+gitallica churn-files --last 1m --path cmd/
+```
+Shows churn analysis for cmd/ directory in the last month.
+
+### **Commit Size Analysis**
+Identify potentially risky commits that are hard to review, debug, or rollback:
+
+```bash
+gitallica commit-size
+```
+Shows top 10 commits by risk score.
+
+```bash
+gitallica commit-size --min-risk High --limit 5
+```
+Shows only High and Critical risk commits.
+
+```bash
+gitallica commit-size --summary --last 7d
+```
+Shows risk distribution summary for the last week.
+
+### **Common Flags**
 The `--last` argument accepts a value in the format `#{number}{unit}`, where unit can be:
 - `d` for days
 - `m` for months
@@ -41,33 +118,31 @@ to show churn in the `internal/` directory over the last year.
 
 ---
 
-Here are some examples of how to use the **gitallica** CLI to analyze code survival:
+## 📊 Research-Backed Thresholds
 
-```bash
-gitallica survival
-```
-Shows code survival rate across the entire history.
+All thresholds in gitallica are based on empirical research from respected engineering organizations and industry leaders:
 
-```bash
-gitallica survival --last 3m
-```
-Shows code survival rate for the last 3 months.
+### **Commit Size Thresholds (400 lines)**
+- **Source**: Microsoft Research, Google, Facebook studies
+- **Research**: "The Effectiveness of Code Review" (Microsoft Research, 2011)
+- **Finding**: Reviews are most effective under 400 lines
+- **Quote**: *"All changes are small. There are only longer and shorter feedback cycles."* — Kent Beck
 
-```bash
-gitallica survival --path src/
-```
-Shows code survival rate scoped to the `src/` directory.
+### **Churn Thresholds (5%, 20%)**
+- **Source**: Microsoft Research (MSR), Adam Tornhill's CodeScene, KPI Depot & Opsera
+- **Research**: "Code Churn and Defect Density" studies
+- **Finding**: Healthy codebases maintain churn below ~15-20%
+- **Quote**: *"Files with high churn are refactored (or hacked) repeatedly."* — Martin Fowler
 
-```bash
-gitallica survival --last 6m --path lib/ --debug
-```
-Shows code survival rate for the last 6 months in the `lib/` directory with debug output enabled.
+### **File Count Penalties (5-15 files)**
+- **Source**: DORA Research (Accelerate), GitHub's State of the Octoverse
+- **Research**: Industry consensus from major tech companies
+- **Finding**: Touching many files increases review complexity and merge conflict risk
 
-**Available flags:**
-
-- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
-- `--path` : Scope the analysis to a specific directory or path within the repository.
-- `--debug` : Enable debug output for more detailed logging during analysis.
+### **Code Survival Thresholds (50%+)**
+- **Source**: Microsoft Research, CodeScene research
+- **Research**: Large-scale study of 3.3 billion code-element lifetimes
+- **Finding**: Median lifespan ~2.4 years; <50% survival indicates instability
 
 ---
 
