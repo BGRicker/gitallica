@@ -70,7 +70,6 @@ func countLines(content string) int {
 func previewContent(s string) string {
 	const contentPreviewLength = 40
 	const previewSuffix = "..."
-	
 	if len(s) > contentPreviewLength {
 		return s[:contentPreviewLength] + previewSuffix
 	}
