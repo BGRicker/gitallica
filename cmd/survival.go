@@ -30,6 +30,20 @@ import (
 // such collisions *extremely* unlikely in practice.
 const lineKeySeparator = "\x00"
 
+// contentPreviewLength defines the max number of characters to display
+// when logging chunk content for debugging.
+const contentPreviewLength = 40
+
+// previewSuffix is appended when content is truncated for logs.
+const previewSuffix = "..."
+
+func previewContent(s string) string {
+	if len(s) > contentPreviewLength {
+		return s[:contentPreviewLength] + previewSuffix
+	}
+	return s
+}
+
 func isEmptyLine(s string) bool {
 	return strings.TrimSpace(s) == ""
 }
@@ -153,10 +167,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 					chunks := fileStat.Chunks()
 					log.Printf("[survival] Entering file patch for %s with %d chunks", filename, len(chunks))
 					for i, chunk := range chunks {
-						contentPreview := chunk.Content()
-						if len(contentPreview) > 40 {
-							contentPreview = contentPreview[:40] + "..."
-						}
+						contentPreview := previewContent(chunk.Content())
 						var chunkType string
 						switch chunk.Type() {
 						case diff.Add:
@@ -246,7 +257,8 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 
 		percent := float64(survived) / float64(totalAdded) * 100
 		if percent > 100 || percent < 0 {
-			log.Printf("[survival][warning] Calculated survival rate out of bounds: survived=%d, totalAdded=%d, percent=%.2f%%", survived, totalAdded, percent)
+			log.Fatalf("[survival][error] Calculated survival rate out of bounds: survived=%d, totalAdded=%d, percent=%.2f%%. This may indicate a bug or data inconsistency. Please check your repository history and parameters.",
+				survived, totalAdded, percent)
 		}
 
 		if survivalDebug {
