@@ -5,6 +5,8 @@ Copyright © 2025 Ben Ricker <ben@jumboturbo.com>
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"strings"
@@ -16,13 +18,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// lineKeySeparator is used to join file paths and line content to create unique keys.
-// The null byte (\x00) is chosen as a separator because it is unlikely to appear
-// in file paths or line content, minimizing the risk of accidental key collisions.
-// Note: While null bytes are rare in file paths and line content, using raw line content
-// can still pose a theoretical collision risk. In the future, a hash of the line content
-// could be considered to further reduce this risk.
+// lineKeySeparator is used to join file paths and (a hash of) line content to create unique keys.
+// The null byte (\x00) is chosen as a separator because it is unlikely to appear in file paths,
+// minimizing the risk of accidental key collisions.
+//
+// We purposefully use a cryptographic hash of the line content in keys (see makeKey) rather than the
+// raw line text. This avoids any edge cases where the separator could be present in content and
+// drastically lowers the chance of collisions. If a collision ever did occur (i.e., two different
+// (file path, line content) pairs produced the same key), survival tracking could count distinct
+// lines as the same, leading to false positives/negatives in the statistics. Using SHA-256 makes
+// such collisions *extremely* unlikely in practice.
 const lineKeySeparator = "\x00"
+
+func isEmptyLine(s string) bool {
+	return strings.TrimSpace(s) == ""
+}
+
+func makeKey(filename, line string) string {
+	sum := sha256.Sum256([]byte(line))
+	return filename + lineKeySeparator + hex.EncodeToString(sum[:])
+}
 
 var survivalLast string
 var survivalPath string
@@ -67,13 +82,8 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 			log.Fatalf("Failed to get HEAD commit: %v", err)
 		}
 
-		// Map to track added lines: key = file+line content, value = struct{when, file}
-		type addedLine struct {
-			File string
-			Line string
-			Time time.Time
-		}
-		added := make(map[string]addedLine)
+		// Map to track added lines: key = file + hash(line content), value = occurrence count
+		added := make(map[string]int)
 
 		// Iterate commits, collect all added lines after cutoff
 		commitsIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
@@ -171,15 +181,11 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 						}
 						lines := strings.Split(chunk.Content(), "\n")
 						for _, l := range lines {
-							if strings.TrimSpace(l) == "" {
+							if isEmptyLine(l) {
 								continue
 							}
-							key := filename + lineKeySeparator + l
-							added[key] = addedLine{
-								File: filename,
-								Line: l,
-								Time: commitTime,
-							}
+							key := makeKey(filename, l)
+							added[key]++
 							if survivalDebug {
 								log.Printf("[survival] Added line: %q", strings.TrimSpace(l))
 							}
@@ -189,9 +195,13 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 			}
 		}
 
-		totalAdded := len(added)
+		// Sum counts so duplicates are accounted for accurately
+		totalAdded := 0
+		for _, c := range added {
+			totalAdded += c
+		}
 		if survivalDebug {
-			log.Printf("[survival] Total added lines tracked: %d", totalAdded)
+			log.Printf("[survival] Total added lines tracked (counted): %d", totalAdded)
 		}
 		if totalAdded == 0 {
 			fmt.Println("No lines added in the specified window.")
@@ -215,13 +225,17 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 			}
 			lines := strings.Split(content, "\n")
 			for _, l := range lines {
-				if strings.TrimSpace(l) == "" {
+				if isEmptyLine(l) {
 					continue
 				}
-				key := f.Name + lineKeySeparator + l
-				if _, ok := added[key]; ok {
+				key := makeKey(f.Name, l)
+				if count, ok := added[key]; ok && count > 0 {
 					survived++
-					delete(added, key)
+					if count == 1 {
+						delete(added, key)
+					} else {
+						added[key] = count - 1
+					}
 				}
 			}
 			return nil
