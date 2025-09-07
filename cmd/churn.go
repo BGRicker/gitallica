@@ -15,6 +15,11 @@ import (
 
 const churnBenchmarkContext = "Healthy codebases typically maintain churn below ~15% (KPI Depot; Opsera benchmarks)."
 
+const (
+	churnHealthyThreshold  = 5
+	churnCautionThreshold  = 15
+)
+
 // parseDurationArg parses a string like "7d", "2m", "1y" and returns a cutoff time.Time from now.
 func parseDurationArg(arg string) (time.Time, error) {
 	if len(arg) < 2 {
@@ -159,12 +164,12 @@ or accumulating complexity.`,
 			churnPercent = float64(additions+deletions) / float64(totalLOC) * 100
 		}
 		status := ""
-		if churnPercent <= 5 {
-			status = "Healthy (≤5%)"
-		} else if churnPercent <= 15 {
-			status = "Caution (5–15%)"
+		if churnPercent <= float64(churnHealthyThreshold) {
+			status = fmt.Sprintf("Healthy (≤%d%%)", churnHealthyThreshold)
+		} else if churnPercent <= float64(churnCautionThreshold) {
+			status = fmt.Sprintf("Caution (%d–%d%%)", churnHealthyThreshold, churnCautionThreshold)
 		} else {
-			status = "Warning (>15%)"
+			status = fmt.Sprintf("Warning (>%d%%)", churnCautionThreshold)
 		}
 
 		fmt.Printf("Additions vs Deletions:\n")
