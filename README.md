@@ -7,248 +7,210 @@
 
 ---
 
-Most teams think they know their codebase. But under the surface, there’s chaos, churn, and a few solos that go on way too long. **gitallica** helps you crank the amp to 11 and hear the *real story* of your repo.  
+Most teams think they know their codebase. But under the surface, there are subtle patterns of churn, ownership concentration, and architectural sprawl that are easy to miss. **gitallica** helps you crank the amp to 11 and hear the *real story* of your repo—backed by research-informed thresholds and best practices.
 
-By mining your git history, gitallica transforms raw commits into insights that help teams stay tight, efficient, and in rhythm.  
-
----
-
-## 📦 Installation (coming soon)  
-```bash
-brew install gitallica
-```
+By mining your git history, gitallica transforms raw commits into insights that help teams stay tight, efficient, and in rhythm. This README includes our guiding thresholds and their research citations.
 
 ---
 
-## 🔍 What gitallica Tracks  
+## Guiding Metrics & Research-Based Benchmarks  
 
-Here are the **15 greatest hits** — the metrics every engineering team needs to keep their repo from turning into a gitwreck.  
+Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
 
 ---
 
 ### 1. **Additions vs. Deletions Ratio**  
 *Is your repo getting leaner, or just bloated?*  
 
-Tracks lines of code added vs. removed. A healthy ratio suggests ongoing refactoring and thoughtful evolution of the codebase. A persistently high additions-to-deletions ratio indicates unchecked growth, complexity creep, and potential maintainability issues.  
+**Threshold:** Keep churn (added + deleted lines) under ~20% of codebase size.  
 
-```bash
-$ gitallica churn
-Additions vs Deletions (last 90 days):
-- Additions: 52,134 lines
-- Deletions: 14,876 lines
-- Ratio: 3.5 : 1  (bloated — time for a remix)
-```
+**Why:**  
+> “If we wish to count lines of code, we should not regard them as ‘lines produced’ but as ‘lines spent.’” — *Edsger W. Dijkstra*  
+
+Ken Thompson added: “One of my most productive days was throwing away 1,000 lines of code.”  
+
+Churn is natural, but if more than ~20% of the codebase is rewritten in a short period, it often signals instability.  
 
 ---
 
 ### 2. **Code Survival Rate**  
 *Do your changes stand the test of time?*  
 
-Calculates how much code written in a given period survives after 6–12 months. High survival suggests architectural stability and durable work. Low survival rates point to rework, shifting priorities, or fragile implementations.  
+**Threshold:** Investigate areas where <50% of lines survive 6–12 months.  
 
-```bash
-$ gitallica survival --window 12m
-Code Survival (12 months):
-- Lines added: 102,487
-- Lines still present: 73,905 (72%)
-- Churned away: 28% (unstable areas in /lib)
-```
+**Why:**  
+A large-scale study of 3.3 billion code-element lifetimes found a median lifespan of ~2.4 years. Modules with unusually short lifespans often indicate unstable design or wasted effort.  
 
 ---
 
 ### 3. **High-Churn Files & Directories**  
 *Which parts of your repo just won’t stay quiet?*  
 
-Identifies the most frequently modified files and directories. High churn often signals unclear ownership, weak abstractions, or hotspots prone to bugs. These are candidates for refactoring, stronger patterns, or clearer ownership models.  
+**Threshold:** File churn >20% in a timeframe flags instability.  
 
-```bash
-$ gitallica hotspots
-Top Hotspots (last 6 months):
-1. components/NavBar.tsx (87 commits)
-2. pages/api/auth.ts (72 commits)
-3. hooks/useSearch.ts (65 commits)
-```
+**Why:**  
+> “Refactoring changes the program in small steps. If you make a mistake, it is easy to find the bug.” — *Martin Fowler, Refactoring*  
+
+Files with high churn are refactored (or hacked) repeatedly; they deserve architectural attention.  
 
 ---
 
 ### 4. **New Component Creation Rate**  
 *Are you growing at the right pace, or sprawling out of control?*  
 
-Monitors the creation of new React components, hooks, API routes, and modules. A steady pace suggests healthy growth, while spikes can indicate rapid complexity expansion that may outpace architectural guardrails.  
+**Threshold:** Monitor for sudden spikes or persistent growth beyond baseline.  
 
-```bash
-$ gitallica components
-New components (last 12 months):
-- React Components: 33
-- Hooks: 14
-- API Routes: 9
-Trend: +45% YoY (expanding fast)
-```
+**Why:**  
+> “The design should have the fewest possible classes and methods.” — *Kent Beck’s rules of simple design*  
+
+A spike in new models or services can indicate architectural sprawl.  
 
 ---
 
 ### 5. **Directory Entropy**  
 *When clean albums turn into messy mixtapes.*  
 
-Measures how evenly changes are distributed within directories. High entropy means code boundaries are blurred and responsibilities unclear, often leading to brittle or tangled dependencies. Low entropy indicates stronger modularity and architectural discipline.  
+**Threshold:** Compare entropy across directories; flag outliers relative to team norms.  
 
-```bash
-$ gitallica entropy
-High-Entropy Directories:
-1. lib/utils/ (0.81)
-2. components/shared/ (0.74)
-3. scripts/ (0.68)
-```
+**Why:**  
+> “Simplicity is prerequisite for reliability.” — *Edsger W. Dijkstra*  
+
+High entropy signals weak modularity and eroded boundaries.  
 
 ---
 
 ### 6. **Dead Zones**  
 *Code that time forgot.*  
 
-Highlights files untouched for long periods. Legacy code isn’t always harmful, but stale code often harbors technical debt, unpatched vulnerabilities, or business logic nobody fully understands anymore. These should be reviewed or retired.  
+**Threshold:** Files untouched for ≥12 months that remain active.  
 
-```bash
-$ gitallica deadzones --age 2y
-Untouched >2 years:
-- lib/legacyAuth.ts
-- scripts/dbMigration2019.sql
-```
+**Why:**  
+> “The only way to go fast is to keep your code as clean as possible at all times.” — *Robert C. Martin, Clean Code*  
+
+Untouched code becomes a liability; better to refactor, revive, or delete.  
 
 ---
 
 ### 7. **Bus Factor (per directory)**  
 *Who’s the last person standing if someone leaves?*  
 
-Counts contributors per directory. A low bus factor signals risk — critical knowledge concentrated in one or two people. Increasing contributor spread in these areas reduces single points of failure and improves resilience.  
+**Threshold:** Target bus factor of ~25–50% of team (e.g., 4–5 in a 10-person team).  
 
-```bash
-$ gitallica busfactor
-Directory Ownership:
-- components/ : 12 contributors (healthy band)
-- lib/payments/ : 1 contributor (solo act — risky)
-- hooks/ : 7 contributors
-```
+**Why:**  
+Collective ownership is healthier than strong ownership:  
+> “With collective ownership, anyone can change any part of the code at any time.” — *Martin Fowler*  
+
+But diffuse ownership without clear stewardship risks accountability gaps.  
 
 ---
 
 ### 8. **Ownership Clarity**  
 *Does anyone really own this code?*  
 
-Examines commit distribution per file. Clear ownership (most changes by a few people) means accountability and consistency. Diffuse ownership (many contributors spread thin) often correlates with inconsistent quality and harder maintenance.  
+**Threshold:** Flag files with no contributor ≥40–50% of commits (when >10 contributors exist).  
 
-```bash
-$ gitallica ownership
-Ownership:
-- components/NavBar.tsx : 80% by 2 devs (clear)
-- pages/api/* : 50+ contributors (chaos)
-```
+**Why:** Diffuse ownership correlates with inconsistent quality; concentrated ownership risks bottlenecks. Balance matters.  
 
 ---
 
 ### 9. **Onboarding Footprint**  
-*What do new devs touch first?*  
+*What new devs touch first.*  
 
-Analyzes which files new contributors modify in their first commits. A narrow footprint suggests a structured onboarding path. A broad footprint indicates a steep learning curve or poorly scoped starter tasks, both of which slow down ramp-up.  
+**Threshold:** New contributors touching >10–20 files in first 5 commits may signal steep onboarding.  
 
-```bash
-$ gitallica onboarding --limit 5
-First 5 commits by new devs:
-- Alice: 2 files (focused start)
-- Bob: 47 files (overexposed)
-```
+**Why:**  
+> “Developers spend much more time reading code than writing it, so making it easy to read makes it easier to write.” — *Robert C. Martin, Clean Code*  
+
+Scoped, small first tasks help new developers succeed.  
 
 ---
 
 ### 10. **Code vs. Test Ratio**  
 *Are you rehearsing as much as you’re performing?*  
 
-Compares code added to test code added. A healthy balance reflects consistent testing discipline. A high imbalance suggests risks in quality assurance and signals the need to reinforce testing practices.  
+**Threshold:** Test-to-code ratio ≈1:1, up to 2:1. Anything below 1:1 suggests lagging tests.  
 
-```bash
-$ gitallica test-ratio
-Last 90 days:
-- Code: 12,843 lines
-- Tests: 2,114 lines
-- Ratio: 6.1 : 1  (tests lagging)
-```
+**Why:**  
+> “Test code is just as important as production code.” — *Robert C. Martin, Clean Code*  
+
+A healthy ratio shows you’re rehearsing before the big show.  
 
 ---
 
 ### 11. **High-Risk Commits**  
 *The monster commits that touch everything.*  
 
-Flags commits that change an unusually large number of files. These are difficult to review, more likely to introduce bugs, and typically reflect poor commit hygiene or weak branching strategies.  
+**Threshold:** >400 lines or >10–12 files per commit is high risk.  
 
-```bash
-$ gitallica risky
-Commits touching >25 files:
-- abc1234: "Refactor auth flow" (32 files)
-- def5678: "Checkout + Payments merge" (41 files)
-```
+**Why:**  
+> “All changes are small. There are only longer and shorter feedback cycles.” — *Kent Beck*  
+> “Refactoring changes the program in small steps.” — *Martin Fowler*  
+
+Large commits reduce review effectiveness and rollback safety.  
 
 ---
 
 ### 12. **Commit Cadence Trends**  
 *Is your repo speeding up or slowing down?*  
 
-Shows commit activity over time. Sustained dips may reflect reduced capacity, bottlenecks, or morale issues. Sudden spikes often correlate with crunch periods or looming deadlines. Both are valuable signals for engineering leadership.  
+**Threshold:** Track trends, not absolutes. Spikes or dips may reveal crunch, burnout, or stagnation.  
 
-```bash
-$ gitallica cadence
-Commits per month (last 12 months):
-- Peak: 458 (Apr 2024)
-- Current: 312 (Jul 2024)
-Trend: -31% (slowing tempo)
-```
+**Why:**  
+> “Overtime is a symptom of a serious problem… you can’t work a second week of overtime.” — *Kent Beck, Extreme Programming Explained*  
+
+A sustainable pace is better than bursts of frenzy.  
 
 ---
 
 ### 13. **Review Bottlenecks**  
 *Where pull requests go to die.*  
 
-Analyzes average merge times per file or directory. Files that consistently delay reviews are high-friction areas — often too complex, poorly documented, or organizationally sensitive. These need extra focus to keep velocity healthy.  
+**Threshold:** PRs taking >3–5 days should be investigated.  
 
-```bash
-$ gitallica bottlenecks
-Slowest-to-merge files:
-- lib/invoice.ts : 4.2 days avg
-- components/Checkout.tsx : 3.9 days avg
-```
+**Why:**  
+Studies show reviews are most effective under 400 lines and under an hour. Longer reviews lose effectiveness.  
 
 ---
 
 ### 14. **Long-Lived Branches**  
 *That one track nobody finishes.*  
 
-Flags branches that linger without merging. The longer a branch lives, the greater the chance of merge conflicts, architectural drift, and wasted effort. Monitoring these helps enforce healthier integration practices.  
+**Threshold:** Branches older than a few days are risky. Trunk-based development recommends daily merges.  
 
-```bash
-$ gitallica branches
-Long-lived branches:
-- feature/checkout-revamp : 94 days
-- spike/graphql-test : 73 days
-```
+**Why:**  
+Accelerate/DORA research shows elite teams merge frequently and keep branches short-lived.  
 
 ---
 
 ### 15. **Change Lead Time**  
 *How long does it take to ship?*  
 
-Measures the time from the first commit on a branch to its merge. Short lead times correlate with agility and strong DevOps practices. Long lead times highlight delivery bottlenecks or inefficient workflows.  
+**Threshold:**  
+- Elite: <1 day  
+- High: 1 day–1 week  
+- Medium: 1 week–1 month  
+- Low: >1 month  
 
-```bash
-$ gitallica leadtime
-Average Lead Time (6 months): 3.8 days
-90th percentile: 12.4 days
-```
+**Why:**  
+These are the DORA benchmarks for lead time. Lead time reflects delivery health.  
 
 ---
 
-## 🚀 Why Use gitallica?  
-Other tools give you vanity metrics like stars and forks. **gitallica** digs deeper — into how your codebase evolves, where risks lie, and how your team really works.  
+## How These Are Used in Development  
 
-- **Managers** → Spot bottlenecks and risks early.  
-- **Tech leads** → Track architecture drift in real time.  
-- **Developers** → Know which files are fragile before touching them.  
+- **Scaling by team size:** Metrics like bus factor scale with org size.  
+- **Configurable thresholds:** Override defaults via config or CLI flags.  
+- **Tracing thresholds:** Each metric cites rationale from authoritative sources.  
+- **Performance-conscious design:** Heavy metrics run lazily or on demand.  
 
-⚡ *Don’t just play your repo. Rock it.*  
+---
+
+## Why Use gitallica?  
+
+Other tools give you vanity metrics like stars and forks. **gitallica** digs deeper—into how your codebase evolves, where risks lie, and how your team really works.  
+
+- **Managers** → Spot architectural rot and churn early.  
+- **Tech leads** → See review friction and risk hotspots.  
+- **Developers** → Understand fragile areas and onboarding hurdles.  
+
+⚡ *Don’t just play your repo. Rock it—consciously.*  
