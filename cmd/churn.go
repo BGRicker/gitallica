@@ -45,14 +45,12 @@ func processCommitDiffs(c *object.Commit, pathArg string) (int, int) {
 		return 0, 0
 	}
 	parents := c.Parents()
-	for {
-		parent, err := parents.Next()
-		if err != nil {
-			break
-		}
+	defer parents.Close()
+	parents.ForEach(func(parent *object.Commit) error {
 		patch, err := parent.Patch(c)
 		if err != nil {
-			continue
+			log.Printf("failed to generate patch between parent %s and commit %s: %v", parent.Hash.String(), c.Hash.String(), err)
+			return nil
 		}
 		for _, stat := range patch.Stats() {
 			if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
@@ -61,7 +59,8 @@ func processCommitDiffs(c *object.Commit, pathArg string) (int, int) {
 			additions += stat.Addition
 			deletions += stat.Deletion
 		}
-	}
+		return nil
+	})
 	return additions, deletions
 }
 
@@ -155,11 +154,9 @@ or accumulating complexity.`,
 			log.Fatalf("Could not count LOC: %v", err)
 		}
 
-		var churnPercent float64
+		churnPercent := 0.0
 		if totalLOC > 0 {
 			churnPercent = float64(additions+deletions) / float64(totalLOC) * 100
-		} else {
-			churnPercent = 0
 		}
 		status := ""
 		if churnPercent <= 5 {
