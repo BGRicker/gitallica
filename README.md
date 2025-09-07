@@ -7,9 +7,37 @@
 
 ---
 
-Most teams think they know their codebase. But under the surface, there are subtle patterns of churn, ownership concentration, and architectural sprawl that are easy to miss. **gitallica** helps you crank the amp to 11 and hear the *real story* of your repo—backed by research-informed thresholds and best practices.
+## 🚀 Usage
 
-By mining your git history, gitallica transforms raw commits into insights that help teams stay tight, efficient, and in rhythm. This README includes our guiding thresholds and their research citations.
+Here are some examples of how to use the **gitallica** CLI to analyze churn:
+
+```bash
+gitallica churn
+```
+Shows churn across the entire history.
+
+```bash
+gitallica churn --last 6m
+```
+Shows churn for the last 6 months.
+
+```bash
+gitallica churn --path cmd/
+```
+Shows churn scoped to the `cmd/` directory.
+
+The `--last` argument accepts a value in the format `#{number}{unit}`, where unit can be:
+- `d` for days
+- `m` for months
+- `y` for years
+
+For example, `--last 30d` means the last 30 days, `--last 1y` means the last year.
+
+You can combine multiple flags, like:
+```bash
+gitallica churn --last 1y --path internal/
+```
+to show churn in the `internal/` directory over the last year.
 
 ---
 

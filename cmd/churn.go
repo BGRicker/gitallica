@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -73,25 +74,28 @@ or accumulating complexity.`,
 		var additions, deletions int
 		err = cIter.ForEach(func(c *object.Commit) error {
 			if !since.IsZero() && c.Committer.When.Before(since) {
-				return nil
+				return storage.ErrStop
 			}
 			if c.NumParents() == 0 {
 				return nil
 			}
-			parent, err := c.Parents().Next()
-			if err != nil {
-				return nil
-			}
-			patch, err := parent.Patch(c)
-			if err != nil {
-				return nil
-			}
-			for _, stat := range patch.Stats() {
-				if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
+			parents := c.Parents()
+			for {
+				parent, err := parents.Next()
+				if err != nil {
+					break
+				}
+				patch, err := parent.Patch(c)
+				if err != nil {
 					continue
 				}
-				additions += stat.Addition
-				deletions += stat.Deletion
+				for _, stat := range patch.Stats() {
+					if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
+						continue
+					}
+					additions += stat.Addition
+					deletions += stat.Deletion
+				}
 			}
 			return nil
 		})
