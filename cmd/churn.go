@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,30 +18,6 @@ const (
 	churnHealthyThreshold  = 5
 	churnCautionThreshold  = 15
 )
-
-// parseDurationArg parses a string like "7d", "2m", "1y" and returns a cutoff time.Time from now.
-func parseDurationArg(arg string) (time.Time, error) {
-	if len(arg) < 2 {
-		return time.Time{}, fmt.Errorf("invalid duration argument: %s", arg)
-	}
-	unit := arg[len(arg)-1]
-	numStr := arg[:len(arg)-1]
-	num, err := strconv.Atoi(numStr)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("invalid number in duration: %s", arg)
-	}
-	now := time.Now()
-	switch unit {
-	case 'd':
-		return now.AddDate(0, 0, -num), nil
-	case 'm':
-		return now.AddDate(0, -num, 0), nil
-	case 'y':
-		return now.AddDate(-num, 0, 0), nil
-	default:
-		return time.Time{}, fmt.Errorf("invalid unit in duration: %c", unit)
-	}
-}
 
 func processCommitDiffs(c *object.Commit, pathArg string) (int, int) {
 	var additions, deletions int
@@ -69,13 +44,6 @@ func processCommitDiffs(c *object.Commit, pathArg string) (int, int) {
 	return additions, deletions
 }
 
-func countLines(content string) int {
-	lines := strings.Count(content, "\n")
-	if len(content) > 0 && !strings.HasSuffix(content, "\n") {
-		lines++
-	}
-	return lines
-}
 
 // churnCmd represents the churn command
 var churnCmd = &cobra.Command{

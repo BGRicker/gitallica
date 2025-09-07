@@ -30,36 +30,16 @@ import (
 // such collisions *extremely* unlikely in practice.
 const lineKeySeparator = "\x00"
 
-// contentPreviewLength defines the max number of characters to display
-// when logging chunk content for debugging.
-const contentPreviewLength = 40
-
-// previewSuffix is appended when content is truncated for logs.
-const previewSuffix = "..."
 
 
 // researchNote contains a short reference used in CLI output about healthy survival rates.
 const researchNote = "Healthy survival rates are typically above ~50% after 12 months (MSR, CodeScene research)."
-
-func previewContent(s string) string {
-	if len(s) > contentPreviewLength {
-		return s[:contentPreviewLength] + previewSuffix
-	}
-	return s
-}
-
-func isEmptyLine(s string) bool {
-	return strings.TrimSpace(s) == ""
-}
 
 func makeKey(filename, line string) string {
 	sum := sha256.Sum256([]byte(line))
 	return filename + lineKeySeparator + hex.EncodeToString(sum[:])
 }
 
-var survivalLast string
-var survivalPath string
-var survivalDebug bool
 
 func printSurvivalStats(totalAdded, survived int, percent float64) {
 	fmt.Printf("Survival rate:\n")
@@ -77,11 +57,16 @@ var survivalCmd = &cobra.Command{
 	Long: `Check how many lines survive over time compared to how many were added. 
 Helps spot unstable areas where code gets rewritten too frequently.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Parse flags
+		lastArg, _ := cmd.Flags().GetString("last")
+		pathArg, _ := cmd.Flags().GetString("path")
+		debugArg, _ := cmd.Flags().GetBool("debug")
+
 		// Parse --last argument
 		var cutoff time.Time
 		var err error
-		if survivalLast != "" {
-			cutoff, err = parseDurationArg(survivalLast)
+		if lastArg != "" {
+			cutoff, err = parseDurationArg(lastArg)
 			if err != nil {
 				log.Fatalf("Invalid --last value: %v", err)
 			}
@@ -116,17 +101,17 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 				break
 			}
 			commitTime := commit.Committer.When
-			if survivalDebug {
+			if debugArg {
 				log.Printf("[survival] Commit %s at %v, parents: %d", commit.Hash.String(), commitTime, commit.NumParents())
 			}
 			if !cutoff.IsZero() && commitTime.Before(cutoff) {
-				if survivalDebug {
+				if debugArg {
 					log.Printf("[survival] Skipping commit %s: before cutoff", commit.Hash.String())
 				}
 				continue
 			}
 			if commit.NumParents() > 1 {
-				if survivalDebug {
+				if debugArg {
 					log.Printf("[survival] Skipping commit %s: merge commit", commit.Hash.String())
 				}
 				continue
@@ -137,7 +122,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 				if err != nil {
 					continue
 				}
-				if survivalDebug {
+				if debugArg {
 					log.Printf("[survival] Generating patch for commit %s vs parent %s", commit.Hash.String(), parent.Hash.String())
 				}
 				patch, err = parent.Patch(commit)
@@ -146,7 +131,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 				}
 			} else {
 				// Initial commit, diff with empty tree
-				if survivalDebug {
+				if debugArg {
 					log.Printf("[survival] Generating patch for initial commit %s", commit.Hash.String())
 				}
 				emptyTree := &object.Tree{}
@@ -167,7 +152,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 				} else if from != nil {
 					filename = from.Path()
 				}
-				if survivalDebug {
+				if debugArg {
 					chunks := fileStat.Chunks()
 					log.Printf("[survival] Entering file patch for %s with %d chunks", filename, len(chunks))
 					for i, chunk := range chunks {
@@ -186,12 +171,12 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 						log.Printf("[survival] Chunk %d: type %s, content preview: %q", i, chunkType, contentPreview)
 					}
 				}
-				if survivalPath != "" && !strings.HasPrefix(filename, survivalPath) {
+				if pathArg != "" && !strings.HasPrefix(filename, pathArg) {
 					continue
 				}
 				for _, chunk := range fileStat.Chunks() {
 					if chunk.Type() == diff.Add {
-						if survivalDebug {
+						if debugArg {
 							log.Printf("[survival] Addition chunk in file %s", filename)
 						}
 						lines := strings.Split(chunk.Content(), "\n")
@@ -201,7 +186,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 							}
 							key := makeKey(filename, l)
 							added[key]++
-							if survivalDebug {
+							if debugArg {
 								log.Printf("[survival] Added line: %q", strings.TrimSpace(l))
 							}
 						}
@@ -215,7 +200,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 		for _, c := range added {
 			totalAdded += c
 		}
-		if survivalDebug {
+		if debugArg {
 			log.Printf("[survival] Total added lines tracked (counted): %d", totalAdded)
 		}
 		if totalAdded == 0 {
@@ -230,7 +215,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 			log.Fatalf("Failed to get HEAD tree: %v", err)
 		}
 		err = headTree.Files().ForEach(func(f *object.File) error {
-			if survivalPath != "" && !strings.HasPrefix(f.Name, survivalPath) {
+			if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
 				return nil
 			}
 			// Only text files
@@ -269,7 +254,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 			log.Fatalf("[survival][error] Negative survival rate (%.2f%%). This indicates a counting bug or data inconsistency.", percent)
 		}
 
-		if survivalDebug {
+		if debugArg {
 			log.Printf("[survival] Introduced: %d, Surviving: %d, Rate: %.2f%%",
 				totalAdded, survived, percent)
 		}
@@ -279,8 +264,8 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 }
 
 func init() {
-	survivalCmd.Flags().StringVar(&survivalLast, "last", "", "Time window to consider (e.g. 7d, 2m, 1y)")
-	survivalCmd.Flags().StringVar(&survivalPath, "path", "", "Restrict to file path prefix")
-	survivalCmd.Flags().BoolVar(&survivalDebug, "debug", false, "Enable debug logging for survival analysis")
+	survivalCmd.Flags().String("last", "", "Time window to consider (e.g. 7d, 2m, 1y)")
+	survivalCmd.Flags().String("path", "", "Restrict to file path prefix")
+	survivalCmd.Flags().Bool("debug", false, "Enable debug logging for survival analysis")
 	rootCmd.AddCommand(survivalCmd)
 }
