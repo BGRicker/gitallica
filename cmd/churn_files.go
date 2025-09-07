@@ -137,16 +137,19 @@ func aggregateDirectoryChurn(files []FileChurnStats) []DirectoryChurnStats {
 }
 
 // processCommitForFileChurn processes a single commit to extract file-level churn data.
-func processCommitForFileChurn(c *object.Commit, pathArg string) map[string]FileChurnStats {
+func processCommitForFileChurn(c *object.Commit, pathArg string) (map[string]FileChurnStats, error) {
 	fileStats := make(map[string]FileChurnStats)
 	
 	if c.NumParents() == 0 {
-		return fileStats
+		return fileStats, nil
 	}
 	
 	parents := c.Parents()
 	defer parents.Close()
-	parents.ForEach(func(parent *object.Commit) error {
+	
+	parentCount := 0
+	err := parents.ForEach(func(parent *object.Commit) error {
+		parentCount++
 		patch, err := parent.Patch(c)
 		if err != nil {
 			log.Printf("failed to generate patch between parent %s and commit %s: %v", parent.Hash.String(), c.Hash.String(), err)
@@ -173,7 +176,18 @@ func processCommitForFileChurn(c *object.Commit, pathArg string) map[string]File
 		return nil
 	})
 	
-	return fileStats
+	// For merge commits, we only want to count changes from the first parent
+	// Use ceiling division to avoid truncating to 0
+	if parentCount > 1 {
+		for path := range fileStats {
+			stats := fileStats[path]
+			stats.Additions = (stats.Additions + parentCount - 1) / parentCount
+			stats.Deletions = (stats.Deletions + parentCount - 1) / parentCount
+			fileStats[path] = stats
+		}
+	}
+	
+	return fileStats, err
 }
 
 // getCurrentFileSizes gets the current size (LOC) of all files in the repository.
@@ -307,7 +321,11 @@ Thresholds:
 				return storer.ErrStop
 			}
 			
-			commitFileStats := processCommitForFileChurn(c, pathArg)
+			commitFileStats, err := processCommitForFileChurn(c, pathArg)
+			if err != nil {
+				log.Printf("Error processing commit %s: %v", c.Hash.String(), err)
+				return nil
+			}
 			for path, stats := range commitFileStats {
 				if existing, exists := allFileStats[path]; exists {
 					existing.Additions += stats.Additions

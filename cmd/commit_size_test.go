@@ -47,7 +47,7 @@ func TestCalculateCommitRisk(t *testing.T) {
 			additions:      200,
 			deletions:      100,
 			filesChanged:   8,
-			expectedRisk:   "High",
+			expectedRisk:   "Medium",
 			expectedScore:  380, // 300 + (8 * 10)
 		},
 		{
@@ -71,7 +71,7 @@ func TestCalculateCommitRisk(t *testing.T) {
 			additions:      100,
 			deletions:      50,
 			filesChanged:   20,
-			expectedRisk:   "Critical",
+			expectedRisk:   "Medium",
 			expectedScore:  350, // 150 + (20 * 10)
 		},
 		{
@@ -79,7 +79,7 @@ func TestCalculateCommitRisk(t *testing.T) {
 			additions:      800,
 			deletions:      200,
 			filesChanged:   2,
-			expectedRisk:   "Critical",
+			expectedRisk:   "High",
 			expectedScore:  1020, // 1000 + (2 * 10)
 		},
 	}

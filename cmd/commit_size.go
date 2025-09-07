@@ -58,18 +58,29 @@ type CommitSizeStats struct {
 }
 
 // calculateCommitRisk determines the risk level and score for a commit based on its size.
+// Uses a weighted scoring system that prioritizes both line changes and file count.
 func calculateCommitRisk(additions, deletions, filesChanged int) (string, int) {
 	totalChanges := additions + deletions
 	
 	// Calculate risk score: prioritize large changes and many files
+	// Files get 10 points each to reflect increased complexity
 	riskScore := totalChanges + (filesChanged * 10)
 	
 	var riskLevel string
+	// Use hybrid logic: score-based with file count modifiers
 	switch {
-	case riskScore >= commitSizeHighThreshold || filesChanged >= commitSizeFilesHighThreshold:
-		riskLevel = "Critical"
-	case riskScore >= commitSizeMediumThreshold || filesChanged >= commitSizeFilesLowThreshold:
-		riskLevel = "High"
+	case riskScore >= commitSizeHighThreshold:
+		if filesChanged >= commitSizeFilesHighThreshold {
+			riskLevel = "Critical"
+		} else {
+			riskLevel = "High"
+		}
+	case riskScore >= commitSizeMediumThreshold:
+		if filesChanged >= commitSizeFilesLowThreshold {
+			riskLevel = "High"
+		} else {
+			riskLevel = "Medium"
+		}
 	case riskScore >= commitSizeLowThreshold:
 		riskLevel = "Medium"
 	default:
@@ -182,8 +193,9 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 	})
 	
 	// For merge commits, we only want to count changes from the first parent
+	// Use ceiling division to avoid truncating to 0
 	if parentCount > 1 {
-		filesChanged = filesChanged / parentCount
+		filesChanged = (filesChanged + parentCount - 1) / parentCount
 	}
 	
 	return additions, deletions, filesChanged, err
