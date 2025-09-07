@@ -31,6 +31,14 @@ Ken Thompson added: “One of my most productive days was throwing away 1,000 li
 
 Churn is natural, but if more than ~20% of the codebase is rewritten in a short period, it often signals instability.  
 
+#### How We Calculate Churn  
+
+In gitallica, churn is calculated as the ratio of the sum of added and deleted lines relative to the total lines of code (LOC) in the codebase, expressed by the formula:  
+
+`Churn = (Additions + Deletions) ÷ Total LOC`  
+
+This approach aligns with definitions and methodologies used by Microsoft Research, Adam Tornhill's CodeScene, and other industry benchmarks. Measuring churn relative to the total codebase size rather than just raw additions or deletions provides a normalized view of code volatility. Established engineering research supports thresholds around 15–20% churn as indicators of potential instability or areas needing attention.  
+
 ---
 
 ### 2. **Code Survival Rate**  
