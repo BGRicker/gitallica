@@ -16,6 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// lineKeySeparator is used to join file paths and line content to create unique keys.
+// The null byte (\x00) is chosen as a separator because it is unlikely to appear
+// in file paths or line content, minimizing the risk of accidental key collisions.
+// Note: While null bytes are rare in file paths and line content, using raw line content
+// can still pose a theoretical collision risk. In the future, a hash of the line content
+// could be considered to further reduce this risk.
 const lineKeySeparator = "\x00"
 
 var survivalLast string
@@ -203,11 +209,6 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 				return nil
 			}
 			// Only text files
-			r, err := f.Reader()
-			if err != nil {
-				return nil
-			}
-			defer r.Close()
 			content, err := f.Contents()
 			if err != nil {
 				return nil
@@ -220,6 +221,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 				key := f.Name + lineKeySeparator + l
 				if _, ok := added[key]; ok {
 					survived++
+					delete(added, key)
 				}
 			}
 			return nil
@@ -229,11 +231,8 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 		}
 
 		percent := float64(survived) / float64(totalAdded) * 100
-		if percent > 100 {
-			percent = 100
-		}
-		if percent < 0 {
-			percent = 0
+		if percent > 100 || percent < 0 {
+			log.Printf("[survival][warning] Calculated survival rate out of bounds: survived=%d, totalAdded=%d, percent=%.2f%%", survived, totalAdded, percent)
 		}
 
 		if survivalDebug {
