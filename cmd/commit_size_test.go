@@ -39,7 +39,7 @@ func TestCalculateCommitRisk(t *testing.T) {
 			additions:      50,
 			deletions:      25,
 			filesChanged:   3,
-			expectedRisk:   "Medium",
+			expectedRisk:   "Low",
 			expectedScore:  105, // 75 + (3 * 10)
 		},
 		{

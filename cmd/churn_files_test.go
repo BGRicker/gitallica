@@ -267,7 +267,7 @@ func TestDirectoryAggregationEdgeCases(t *testing.T) {
 				{Path: "config.go", Additions: 20, Deletions: 10, TotalLOC: 200, ChurnPercent: 15.0},
 			},
 			expected: []DirectoryChurnStats{
-				{Path: "root/", Additions: 120, Deletions: 60, TotalLOC: 700, ChurnPercent: 25.7, FileCount: 2},
+				{Path: "root/", Additions: 120, Deletions: 60, TotalLOC: 700, ChurnPercent: 25.71, FileCount: 2},
 			},
 		},
 		{
@@ -281,7 +281,7 @@ func TestDirectoryAggregationEdgeCases(t *testing.T) {
 			expected: []DirectoryChurnStats{
 				{Path: "tests/", Additions: 30, Deletions: 15, TotalLOC: 100, ChurnPercent: 45.0, FileCount: 1},
 				{Path: "tests/integration/", Additions: 10, Deletions: 5, TotalLOC: 50, ChurnPercent: 30.0, FileCount: 1},
-				{Path: "src/", Additions: 120, Deletions: 60, TotalLOC: 700, ChurnPercent: 25.7, FileCount: 2},
+				{Path: "src/", Additions: 120, Deletions: 60, TotalLOC: 700, ChurnPercent: 25.71, FileCount: 2},
 			},
 		},
 	}

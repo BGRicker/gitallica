@@ -82,7 +82,11 @@ func calculateCommitRisk(additions, deletions, filesChanged int) (string, int) {
 			riskLevel = "Medium"
 		}
 	case riskScore >= commitSizeLowThreshold:
-		riskLevel = "Medium"
+		if filesChanged < commitSizeFilesLowThreshold {
+			riskLevel = "Low"
+		} else {
+			riskLevel = "Medium"
+		}
 	default:
 		riskLevel = "Low"
 	}
@@ -192,8 +196,11 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 		return nil
 	})
 	
-	// For merge commits, we only want to count changes from the first parent
-	// Use ceiling division to avoid truncating to 0
+	// For merge commits (commits with multiple parents), the diff is calculated
+	// against each parent, which can result in overcounting the number of files changed. To estimate the
+	// number of unique files changed in the merge commit, we divide the total by the number of
+	// parents. We use ceiling division to ensure that the result is not truncated to zero, which could happen
+	// if the total is less than the number of parents.
 	if parentCount > 1 {
 		filesChanged = (filesChanged + parentCount - 1) / parentCount
 	}
