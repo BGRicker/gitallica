@@ -41,6 +41,36 @@ to show churn in the `internal/` directory over the last year.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze code survival:
+
+```bash
+gitallica survival
+```
+Shows code survival rate across the entire history.
+
+```bash
+gitallica survival --last 3m
+```
+Shows code survival rate for the last 3 months.
+
+```bash
+gitallica survival --path src/
+```
+Shows code survival rate scoped to the `src/` directory.
+
+```bash
+gitallica survival --last 6m --path lib/ --debug
+```
+Shows code survival rate for the last 6 months in the `lib/` directory with debug output enabled.
+
+**Available flags:**
+
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--debug` : Enable debug output for more detailed logging during analysis.
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
