@@ -3,15 +3,17 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"time"
-	"strings"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/storage"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/spf13/cobra"
 )
+
+const churnBenchmarkContext = "Healthy codebases typically maintain churn below ~15% (KPI Depot; Opsera benchmarks)."
 
 // parseDurationArg parses a string like "7d", "2m", "1y" and returns a cutoff time.Time from now.
 func parseDurationArg(arg string) (time.Time, error) {
@@ -35,6 +37,40 @@ func parseDurationArg(arg string) (time.Time, error) {
 	default:
 		return time.Time{}, fmt.Errorf("invalid unit in duration: %c", unit)
 	}
+}
+
+func processCommitDiffs(c *object.Commit, pathArg string) (int, int) {
+	var additions, deletions int
+	if c.NumParents() == 0 {
+		return 0, 0
+	}
+	parents := c.Parents()
+	for {
+		parent, err := parents.Next()
+		if err != nil {
+			break
+		}
+		patch, err := parent.Patch(c)
+		if err != nil {
+			continue
+		}
+		for _, stat := range patch.Stats() {
+			if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
+				continue
+			}
+			additions += stat.Addition
+			deletions += stat.Deletion
+		}
+	}
+	return additions, deletions
+}
+
+func countLines(content string) int {
+	lines := strings.Count(content, "\n")
+	if len(content) > 0 && !strings.HasSuffix(content, "\n") {
+		lines++
+	}
+	return lines
 }
 
 // churnCmd represents the churn command
@@ -74,29 +110,11 @@ or accumulating complexity.`,
 		var additions, deletions int
 		err = cIter.ForEach(func(c *object.Commit) error {
 			if !since.IsZero() && c.Committer.When.Before(since) {
-				return storage.ErrStop
+				return storer.ErrStop
 			}
-			if c.NumParents() == 0 {
-				return nil
-			}
-			parents := c.Parents()
-			for {
-				parent, err := parents.Next()
-				if err != nil {
-					break
-				}
-				patch, err := parent.Patch(c)
-				if err != nil {
-					continue
-				}
-				for _, stat := range patch.Stats() {
-					if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
-						continue
-					}
-					additions += stat.Addition
-					deletions += stat.Deletion
-				}
-			}
+			a, d := processCommitDiffs(c, pathArg)
+			additions += a
+			deletions += d
 			return nil
 		})
 		if err != nil {
@@ -130,13 +148,7 @@ or accumulating complexity.`,
 			if err != nil {
 				return nil
 			}
-			// Count lines in file
-			lines := strings.Count(content, "\n")
-			// If file doesn't end with newline, add 1
-			if len(content) > 0 && !strings.HasSuffix(content, "\n") {
-				lines++
-			}
-			totalLOC += lines
+			totalLOC += countLines(content)
 			return nil
 		})
 		if err != nil {
@@ -164,7 +176,7 @@ or accumulating complexity.`,
 		fmt.Printf("- Total LOC: %d lines\n", totalLOC)
 		fmt.Printf("Churn = (Additions + Deletions) / Total LOC\n")
 		fmt.Printf("Churn: %.2f%% — %s\n", churnPercent, status)
-		fmt.Println("Context: Healthy codebases typically maintain churn below ~15% (KPI Depot; Opsera benchmarks).")
+		fmt.Println("Context:", churnBenchmarkContext)
 	},
 }
 
