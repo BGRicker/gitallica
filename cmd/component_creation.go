@@ -12,6 +12,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
+	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/spf13/cobra"
 )
 
@@ -188,6 +189,11 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 			return nil
 		}
 		
+		// Skip initial commit (no parent) to avoid false positives in component detection
+		if parentTree == nil {
+			return nil
+		}
+		
 		// Analyze only added/modified files using diff
 		changes, err := tree.Diff(parentTree)
 		if err != nil {
@@ -236,14 +242,29 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 				}
 			}
 			
-			// Only analyze added lines in this file
-			content, err := file.Contents()
+			// Get the diff patch to analyze only added lines
+			patch, err := change.Patch()
 			if err != nil {
 				continue
 			}
 			
+			// Extract only added lines from the patch
+			var addedContent strings.Builder
+			for _, filePatch := range patch.FilePatches() {
+				for _, chunk := range filePatch.Chunks() {
+					if chunk.Type() == diff.Add {
+						addedContent.WriteString(chunk.Content())
+					}
+				}
+			}
+			
+			// Only analyze if there are added lines
+			if addedContent.Len() == 0 {
+				continue
+			}
+			
 			// Detect components in added content only
-			detected := detectComponentsInFile(file.Name, content)
+			detected := detectComponentsInFile(file.Name, addedContent.String())
 			for componentType, count := range detected {
 				if stats, exists := componentStats[componentType]; exists {
 					stats.Count += count
