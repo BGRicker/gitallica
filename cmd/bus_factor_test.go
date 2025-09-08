@@ -28,14 +28,14 @@ import (
 func TestCalculateBusFactor(t *testing.T) {
 	tests := []struct {
 		name               string
-		authorCommits      map[string]int
-		expectedBusFactor  int
-		expectedRiskLevel  string
-		description        string
+		authorLines         map[string]int
+		expectedBusFactor   int
+		expectedRiskLevel   string
+		description         string
 	}{
 		{
 			name: "single author - high risk",
-			authorCommits: map[string]int{
+			authorLines: map[string]int{
 				"alice@example.com": 100,
 			},
 			expectedBusFactor: 1,
@@ -44,7 +44,7 @@ func TestCalculateBusFactor(t *testing.T) {
 		},
 		{
 			name: "two authors balanced - medium risk",
-			authorCommits: map[string]int{
+			authorLines: map[string]int{
 				"alice@example.com": 50,
 				"bob@example.com":   50,
 			},
@@ -54,7 +54,7 @@ func TestCalculateBusFactor(t *testing.T) {
 		},
 		{
 			name: "three authors well distributed - low risk",
-			authorCommits: map[string]int{
+			authorLines: map[string]int{
 				"alice@example.com":   40,
 				"bob@example.com":     35,
 				"charlie@example.com": 25,
@@ -65,7 +65,7 @@ func TestCalculateBusFactor(t *testing.T) {
 		},
 		{
 			name: "one dominant author among many - high risk",
-			authorCommits: map[string]int{
+			authorLines: map[string]int{
 				"alice@example.com":   80,
 				"bob@example.com":     10,
 				"charlie@example.com": 5,
@@ -78,7 +78,7 @@ func TestCalculateBusFactor(t *testing.T) {
 		},
 		{
 			name: "five balanced authors - healthy",
-			authorCommits: map[string]int{
+			authorLines: map[string]int{
 				"alice@example.com":   25,
 				"bob@example.com":     22,
 				"charlie@example.com": 20,
@@ -93,12 +93,12 @@ func TestCalculateBusFactor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			busFactor := calculateBusFactor(tt.authorCommits)
+			busFactor := calculateBusFactor(tt.authorLines)
 			if busFactor != tt.expectedBusFactor {
 				t.Errorf("Expected bus factor %d, got %d. %s", tt.expectedBusFactor, busFactor, tt.description)
 			}
 			
-			riskLevel := classifyBusFactorRisk(busFactor, len(tt.authorCommits))
+			riskLevel := classifyBusFactorRisk(busFactor, len(tt.authorLines))
 			if riskLevel != tt.expectedRiskLevel {
 				t.Errorf("Expected risk level %s, got %s. %s", tt.expectedRiskLevel, riskLevel, tt.description)
 			}
@@ -162,13 +162,13 @@ func TestClassifyBusFactorRisk(t *testing.T) {
 }
 
 func TestCalculateAuthorContributionPercentage(t *testing.T) {
-	authorCommits := map[string]int{
+	authorLines := map[string]int{
 		"alice@example.com": 60,
 		"bob@example.com":   30,
 		"charlie@example.com": 10,
 	}
 	
-	percentages := calculateAuthorContributionPercentage(authorCommits)
+	percentages := calculateAuthorContributionPercentage(authorLines)
 	
 	expectedPercentages := map[string]float64{
 		"alice@example.com": 60.0,
@@ -206,10 +206,10 @@ func TestSortDirectoriesByBusFactorRisk(t *testing.T) {
 }
 
 func TestBusFactorEdgeCases(t *testing.T) {
-	t.Run("empty author commits", func(t *testing.T) {
+	t.Run("empty author lines", func(t *testing.T) {
 		busFactor := calculateBusFactor(map[string]int{})
 		if busFactor != 0 {
-			t.Errorf("Expected bus factor 0 for empty commits, got %d", busFactor)
+			t.Errorf("Expected bus factor 0 for empty lines, got %d", busFactor)
 		}
 	})
 	
@@ -220,10 +220,10 @@ func TestBusFactorEdgeCases(t *testing.T) {
 		}
 	})
 	
-	t.Run("contribution percentage with zero commits", func(t *testing.T) {
+	t.Run("contribution percentage with zero lines", func(t *testing.T) {
 		percentages := calculateAuthorContributionPercentage(map[string]int{})
 		if len(percentages) != 0 {
-			t.Errorf("Expected empty percentages for zero commits, got %d entries", len(percentages))
+			t.Errorf("Expected empty percentages for zero lines, got %d entries", len(percentages))
 		}
 	})
 }
