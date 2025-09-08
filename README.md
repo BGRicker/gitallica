@@ -316,6 +316,50 @@ Analyzes ownership clarity for the `src/` directory over the last 6 months.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze onboarding footprint:
+
+```bash
+gitallica onboarding-footprint
+```
+Analyzes what files new contributors touch first to understand onboarding complexity.
+
+```bash
+gitallica onboarding-footprint --limit 5 --commit-limit 3
+```
+Shows top 5 recent contributors analyzing their first 3 commits.
+
+```bash
+gitallica onboarding-footprint --last 6m --path src/
+```
+Analyzes onboarding patterns for the `src/` directory over the last 6 months.
+
+**Research-Based Analysis:**
+- **Clean Code Principles**: Based on Robert C. Martin's principles about code readability and developer experience
+- **New Contributor Tracking**: Identifies first-time contributors and analyzes their early commits
+- **Onboarding Complexity Assessment**: Measures files touched in first commits to gauge entry complexity
+- **Entry Point Identification**: Discovers common files that new developers modify first
+
+**Complexity Classifications:**
+- **Simple**: 1-5 files (excellent focused onboarding)
+- **Moderate**: 6-10 files (reasonable complexity)
+- **Complex**: 11-20 files (consider simplifying)
+- **Overwhelming**: >20 files (urgent improvement needed)
+
+**Insights Provided:**
+- **Average files touched** by new contributors in early commits
+- **Distribution of onboarding complexity** across contributors
+- **Most common entry point files** that new developers touch
+- **Time-based analysis** of onboarding patterns
+- **Actionable recommendations** for improving developer onboarding
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--limit` : Number of contributors to show in detailed analysis (default 10).
+- `--commit-limit` : Number of initial commits to analyze per contributor (default 5).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
