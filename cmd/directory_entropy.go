@@ -68,28 +68,28 @@ type ProjectType struct {
 
 // Detect project type based on file patterns and structure
 func detectProjectType(tree *object.Tree) ProjectType {
-	var fileExtensions []string
-	var fileNames []string
-	var dirNames []string
+	// Use maps for efficient lookups and to avoid duplicates
+	fileExtensions := make(map[string]bool)
+	rootFiles := make(map[string]bool)
 	
 	tree.Files().ForEach(func(f *object.File) error {
+		// Check if this is a root file (no path separators)
+		if !strings.Contains(f.Name, "/") {
+			fileName := strings.ToLower(f.Name)
+			rootFiles[fileName] = true
+		}
+		
+		// Collect file extensions
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		if ext != "" {
-			fileExtensions = append(fileExtensions, ext)
+			fileExtensions[ext] = true
 		}
 		
-		fileName := strings.ToLower(filepath.Base(f.Name))
-		fileNames = append(fileNames, fileName)
-		
-		dir := filepath.Dir(f.Name)
-		if dir != "." && dir != "" {
-			dirNames = append(dirNames, dir)
-		}
 		return nil
 	})
 	
-	// Detect Go project - check for go.mod file specifically
-	if contains(fileExtensions, ".go") && contains(fileNames, "go.mod") {
+	// Detect Go project - check for go.mod file specifically in root
+	if fileExtensions[".go"] && rootFiles["go.mod"] {
 		return ProjectType{
 			Name: "Go CLI/Application",
 			RootPatterns: []string{".go", ".mod", ".sum", ".md", ".txt", ".yml", ".yaml"},
@@ -105,8 +105,8 @@ func detectProjectType(tree *object.Tree) ProjectType {
 		}
 	}
 	
-	// Detect Node.js project - check for package.json specifically
-	if contains(fileExtensions, ".js") && contains(fileNames, "package.json") {
+	// Detect Node.js project - check for package.json specifically in root
+	if fileExtensions[".js"] && rootFiles["package.json"] {
 		return ProjectType{
 			Name: "Node.js Application",
 			RootPatterns: []string{".js", ".json", ".md", ".txt", ".yml", ".yaml"},
@@ -122,8 +122,8 @@ func detectProjectType(tree *object.Tree) ProjectType {
 		}
 	}
 	
-	// Detect Python project
-	if contains(fileExtensions, ".py") {
+	// Detect Python project - check for common Python files in root
+	if fileExtensions[".py"] && (rootFiles["requirements.txt"] || rootFiles["pyproject.toml"] || rootFiles["setup.py"]) {
 		return ProjectType{
 			Name: "Python Application",
 			RootPatterns: []string{".py", ".txt", ".md", ".yml", ".yaml", ".cfg", ".ini"},
@@ -138,8 +138,8 @@ func detectProjectType(tree *object.Tree) ProjectType {
 		}
 	}
 	
-	// Detect Ruby/Rails project
-	if contains(fileExtensions, ".rb") {
+	// Detect Ruby/Rails project - check for Gemfile in root
+	if fileExtensions[".rb"] && rootFiles["gemfile"] {
 		return ProjectType{
 			Name: "Ruby/Rails Application",
 			RootPatterns: []string{".rb", ".gemspec", ".md", ".txt", ".yml", ".yaml"},
@@ -169,21 +169,17 @@ func detectProjectType(tree *object.Tree) ProjectType {
 	}
 }
 
-// contains checks if a slice contains a specific string
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
 
 // isExpectedFileType checks if a file type is expected in a directory for the project type
 func isExpectedFileType(projectType ProjectType, dirPath string, fileExt string) bool {
 	// Root directory has different rules
 	if dirPath == "root" || dirPath == "." {
-		return contains(projectType.RootPatterns, fileExt)
+		for _, pattern := range projectType.RootPatterns {
+			if pattern == fileExt {
+				return true
+			}
+		}
+		return false
 	}
 	
 	// Check if directory has expected patterns
@@ -191,7 +187,12 @@ func isExpectedFileType(projectType ProjectType, dirPath string, fileExt string)
 		if len(expectedExts) == 0 {
 			return true // Directory allows any file type
 		}
-		return contains(expectedExts, fileExt)
+		for _, ext := range expectedExts {
+			if ext == fileExt {
+				return true
+			}
+		}
+		return false
 	}
 	
 	// Unknown directory - be permissive
