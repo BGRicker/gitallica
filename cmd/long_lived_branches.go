@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -28,6 +29,13 @@ const (
 	
 	// Performance limits
 	maxCommitCountLimit = 1000 // Limit to avoid excessive counting for very large branches
+)
+
+// Sentinel errors for control flow clarity
+var (
+	ErrIterationComplete = errors.New("iteration complete")
+	ErrReachedMergeBase  = errors.New("reached merge base")
+	ErrBranchTooLarge    = errors.New("branch too large")
 )
 
 // BranchInfo represents information about a Git branch
@@ -367,7 +375,7 @@ func isBranchMerged(repo *git.Repository, branchHash, mainHash plumbing.Hash) (b
 	
 	return commitIter.ForEach(func(commit *object.Commit) error {
 		if commit.Hash == branchHash {
-			return fmt.Errorf("found") // Use error to break iteration
+			return ErrIterationComplete // Use sentinel error to break iteration
 		}
 		return nil
 	}) != nil, nil
@@ -424,12 +432,12 @@ func getBranchCommitCount(repo *git.Repository, branchHash, mainHash plumbing.Ha
 
 	err = commitIter.ForEach(func(commit *object.Commit) error {
 		if commit.Hash == mergeBase[0].Hash {
-			return fmt.Errorf("reached merge base") // Stop counting
+			return ErrReachedMergeBase // Stop counting
 		}
 		count++
 		// Limit to avoid excessive counting
 		if count > maxCommitCountLimit {
-			return fmt.Errorf("branch too large")
+			return ErrBranchTooLarge
 		}
 		return nil
 	})

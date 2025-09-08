@@ -22,7 +22,12 @@ func TestLongLivedBranchesAnalysis(t *testing.T) {
 		t.Errorf("Expected TotalBranches = 5, got %d", stats.TotalBranches)
 	}
 
-	expectedAverage := 10.2 // (1+5+15+0+30)/5
+	// Calculate expected average programmatically for maintainability
+	var totalAge int
+	for _, b := range branches {
+		totalAge += int(b.AgeInDays)
+	}
+	expectedAverage := float64(totalAge) / float64(len(branches)) // (1+5+15+0+30)/5 = 10.2
 	tolerance := 0.1
 	if abs(stats.AverageBranchAge-expectedAverage) > tolerance {
 		t.Errorf("Expected AverageBranchAge ≈ %.1f, got %.1f", expectedAverage, stats.AverageBranchAge)
@@ -41,7 +46,7 @@ func TestLongLivedBranchesAnalysis(t *testing.T) {
 		t.Errorf("Expected RiskyBranches = 1, got %d", stats.RiskyBranches)
 	}
 
-	if stats.CriticalBranches != 1 { // 30 days  
+	if stats.CriticalBranches != 1 { // 30 days
 		t.Errorf("Expected CriticalBranches = 1, got %d", stats.CriticalBranches)
 	}
 
