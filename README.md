@@ -232,8 +232,9 @@ gitallica bus-factor --last 6m --path src/
 Shows bus factor analysis for the `src/` directory over the last 6 months.
 
 **Intelligent Analysis:**
-- **Line-Level Ownership**: Uses Git blame data to measure actual code authorship, not just commit frequency
-- **Accurate Knowledge Measurement**: Avoids misleading metrics from drive-by commits, bulk refactors, and merge artifacts
+- **File-Level Ownership**: Uses efficient commit-based analysis to determine file authorship
+- **Performance Optimized**: Fast analysis suitable for large repositories (O(n×c) complexity)
+- **Accurate Knowledge Measurement**: Avoids misleading metrics from drive-by commits while maintaining speed
 - **Research-Backed Thresholds**: Based on Martin Fowler's collective ownership principles
 
 **Risk Classification:**
@@ -346,7 +347,7 @@ Collective ownership is healthier than strong ownership:
 
 But diffuse ownership without clear stewardship risks accountability gaps.
 
-**Intelligent Analysis:** Uses Git blame data to measure actual line-level authorship rather than commit counts, providing accurate knowledge concentration metrics that avoid misleading signals from drive-by commits, bulk refactors, and merge artifacts.
+**Intelligent Analysis:** Uses efficient file-level authorship analysis with commit-based traversal, providing accurate knowledge concentration metrics while maintaining excellent performance for large repositories.
 
 ---
 
