@@ -61,7 +61,7 @@ var componentTypes = map[string]ComponentType{
 		Name:        "React Component",
 		Patterns:    []*regexp.Regexp{
 			// Match class components: class Foo extends React.Component
-			regexp.MustCompile(`class\s+\w+\s+extends\s+(React\.)?Component`),
+			regexp.MustCompile(`\bclass\s+\w+\s+extends\s+(React\.)?Component\b`),
 			// Match functions that return JSX: return <Something ... or
 			regexp.MustCompile(`return\s+\(<\w+`),
 			// Match functions that return JSX directly: return <Something
@@ -72,13 +72,13 @@ var componentTypes = map[string]ComponentType{
 	},
 	"ruby-model": {
 		Name:        "Ruby Model",
-		Patterns:    []*regexp.Regexp{regexp.MustCompile(`class\s+\w+\s*<\s*ApplicationRecord`)},
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`\bclass\s+\w+\s*<\s*ApplicationRecord\b`)},
 		Extensions:  []string{".rb"},
 		Description: "Rails ActiveRecord models",
 	},
 	"ruby-controller": {
 		Name:        "Ruby Controller",
-		Patterns:    []*regexp.Regexp{regexp.MustCompile(`class\s+\w+Controller\s*<\s*ApplicationController`)},
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`\bclass\s+\w+Controller\s*<\s*ApplicationController\b`)},
 		Extensions:  []string{".rb"},
 		Description: "Rails controllers",
 	},
@@ -252,6 +252,7 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 			var addedContent strings.Builder
 			for _, filePatch := range patch.FilePatches() {
 				for _, chunk := range filePatch.Chunks() {
+					// Check chunk type before processing content for efficiency
 					if chunk.Type() == diff.Add {
 						addedContent.WriteString(chunk.Content())
 					}
@@ -268,7 +269,17 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 			for componentType, count := range detected {
 				if stats, exists := componentStats[componentType]; exists {
 					stats.Count += count
-					stats.Files = append(stats.Files, file.Name)
+					// Avoid duplicate file entries
+					alreadyPresent := false
+					for _, fname := range stats.Files {
+						if fname == file.Name {
+							alreadyPresent = true
+							break
+						}
+					}
+					if !alreadyPresent {
+						stats.Files = append(stats.Files, file.Name)
+					}
 					if c.Committer.When.Before(stats.FirstSeen) {
 						stats.FirstSeen = c.Committer.When
 					}
