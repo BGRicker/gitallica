@@ -110,68 +110,21 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 		timeWindow = fmt.Sprintf("since %s", since.Format("2006-01-02"))
 	}
 	
-	// Step 1: Get ALL commits to find each author's true first commit across full history
-	allCommitsIter, err := repo.Log(&git.LogOptions{
+	// Single-pass analysis: find first commits AND gather commit data efficiently
+	// This prevents memory issues from loading full history twice
+	commitIter, err := repo.Log(&git.LogOptions{
 		// No Since filter - we need full history to find true first commits
-		// But limit to reasonable number to avoid memory issues in large repos
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not get commit log: %v", err)
 	}
-	defer allCommitsIter.Close()
+	defer commitIter.Close()
 	
-	// Track true first commits by author across full history
+	// Track data during single pass
 	authorTrueFirstCommit := make(map[string]time.Time)
+	allCommitData := make(map[string][]*CommitInfo) // Store all commits by author
 	
-	err = allCommitsIter.ForEach(func(commit *object.Commit) error {
-		// Skip commits without author information
-		if commit.Author.Email == "" {
-			return nil
-		}
-		
-		author := commit.Author.Email
-		commitTime := commit.Author.When
-		
-		// Track the earliest commit time for each author across ALL history
-		if firstTime, exists := authorTrueFirstCommit[author]; !exists || commitTime.Before(firstTime) {
-			authorTrueFirstCommit[author] = commitTime
-		}
-		
-		return nil
-	})
-	
-	if err != nil {
-		return nil, fmt.Errorf("error finding first commits: %v", err)
-	}
-	
-	// Step 2: Filter to only "new" contributors whose first commit falls within time window
-	var newContributors []string
-	if since != nil {
-		for author, firstCommit := range authorTrueFirstCommit {
-			if firstCommit.After(*since) || firstCommit.Equal(*since) {
-				newContributors = append(newContributors, author)
-			}
-		}
-	} else {
-		// No time window specified - all contributors are considered "new"
-		for author := range authorTrueFirstCommit {
-			newContributors = append(newContributors, author)
-		}
-	}
-	
-	// Step 3: Get ALL commits again to analyze the new contributors' early commits
-	analysisCommitsIter, err := repo.Log(&git.LogOptions{
-		// No Since filter - analyze from their true first commit regardless of window
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not get commit log for analysis: %v", err)
-	}
-	defer analysisCommitsIter.Close()
-	
-	// Track commits for new contributors only
-	contributorCommits := make(map[string][]*CommitInfo)
-	
-	err = analysisCommitsIter.ForEach(func(commit *object.Commit) error {
+	err = commitIter.ForEach(func(commit *object.Commit) error {
 		// Skip commits without author information
 		if commit.Author.Email == "" {
 			return nil
@@ -185,16 +138,9 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 			return nil
 		}
 		
-		// Only process commits from new contributors
-		isNewContributor := false
-		for _, newAuthor := range newContributors {
-			if author == newAuthor {
-				isNewContributor = true
-				break
-			}
-		}
-		if !isNewContributor {
-			return nil
+		// Track the earliest commit time for each author across ALL history
+		if firstTime, exists := authorTrueFirstCommit[author]; !exists || commitTime.Before(firstTime) {
+			authorTrueFirstCommit[author] = commitTime
 		}
 		
 		// Get files changed in this commit
@@ -252,8 +198,8 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 			}
 		}
 		
-		// Store commit info
-		contributorCommits[author] = append(contributorCommits[author], &CommitInfo{
+		// Store commit info for all authors during single pass
+		allCommitData[author] = append(allCommitData[author], &CommitInfo{
 			Hash:    commit.Hash.String(),
 			Time:    commitTime,
 			Files:   filesChanged,
@@ -267,7 +213,30 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
 	}
 	
-	// Sort commits by time for each contributor
+	// After single pass: filter to only "new" contributors whose first commit falls within time window
+	var newContributors []string
+	if since != nil {
+		for author, firstCommit := range authorTrueFirstCommit {
+			if firstCommit.After(*since) || firstCommit.Equal(*since) {
+				newContributors = append(newContributors, author)
+			}
+		}
+	} else {
+		// No time window specified - all contributors are considered "new"
+		for author := range authorTrueFirstCommit {
+			newContributors = append(newContributors, author)
+		}
+	}
+	
+	// Filter commit data to only new contributors for analysis
+	contributorCommits := make(map[string][]*CommitInfo)
+	for _, author := range newContributors {
+		if commits, exists := allCommitData[author]; exists {
+			contributorCommits[author] = commits
+		}
+	}
+	
+	// Sort commits by time for each new contributor
 	for author := range contributorCommits {
 		sort.Slice(contributorCommits[author], func(i, j int) bool {
 			return contributorCommits[author][i].Time.Before(contributorCommits[author][j].Time)

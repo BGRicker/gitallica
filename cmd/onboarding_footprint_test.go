@@ -146,7 +146,7 @@ func TestCalculateOnboardingStats(t *testing.T) {
 				{Email: "bob@example.com", FilesCount: 4, CommitsCount: 4},
 				{Email: "carol@example.com", FilesCount: 1, CommitsCount: 2},
 			},
-			expectedAvgFiles:         2.33, // (2+4+1)/3 ≈ 2.33
+			expectedAvgFiles:         2.33, // (2+4+1)/3 rounded to 2.33
 			expectedSimpleCount:      3,
 			expectedModerateCount:    0,
 			expectedComplexCount:     0,
