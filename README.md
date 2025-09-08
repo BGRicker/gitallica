@@ -499,6 +499,63 @@ Analyzes branches affecting the `src/` directory, including recently merged bran
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze change lead time:
+
+```bash
+gitallica change-lead-time
+```
+Analyzes change lead time using DORA benchmarks to measure delivery performance.
+
+```bash
+gitallica change-lead-time --last 90d --limit 10
+```
+Shows lead time analysis for the last 90 days with top 10 slowest/fastest commits.
+
+```bash
+gitallica change-lead-time --path src/ --method tag
+```
+Analyzes lead time for the `src/` directory using release tags as deployment markers.
+
+**Research-Based Analysis:**
+- **DORA Metrics Foundation**: Based on State of DevOps research and Accelerate book findings
+- **Delivery Performance Indicator**: Measures organizational capability and flow efficiency
+- **Business Correlation**: Strong predictor of software delivery performance and business outcomes
+- **Elite Team Benchmarking**: Enables comparison against industry-leading practices
+
+**DORA Classification Levels:**
+- **Elite**: <1 day lead time (industry-leading performance)
+- **High**: 1 day to 1 week (strong performance)
+- **Medium**: 1 week to 1 month (moderate performance requiring optimization)
+- **Low**: >1 month (significant improvement needed)
+
+**Lead Time Calculation Methods:**
+- **Merge Method**: Time from commit creation to merge into main branch (real Git merge detection)
+- **Tag Method**: Time from commit creation to inclusion in release tag (actual tag analysis)
+- **Real Git Analysis**: Uses actual repository history, not simulated data
+- **Configurable Approach**: Adaptable to different deployment and release strategies
+
+**Performance Level Assessment:**
+- **Elite Performance**: 70%+ commits achieve elite lead time (<1 day)
+- **High Performance**: 60%+ commits achieve elite or high lead time
+- **Medium Performance**: 50%+ commits achieve elite, high, or medium lead time
+- **Low Performance**: <50% commits achieve acceptable lead time
+
+**Insights Provided:**
+- **DORA performance distribution** across all classification levels
+- **Statistical analysis** including average, median, and 95th percentile lead times
+- **Fastest and slowest commits** identification with detailed attribution
+- **Performance benchmarking** against DORA research standards
+- **Delivery bottleneck identification** through outlier analysis
+- **Actionable recommendations** based on current performance level
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Limit analysis to commits affecting a specific directory or path within the repository.
+- `--limit` : Number of slowest/fastest commits to show in detailed output (default 5).
+- `--method` : Lead time calculation method - 'merge' (commit to main) or 'tag' (commit to release tag).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
