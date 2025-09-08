@@ -24,6 +24,7 @@ package cmd
 import (
 	"fmt"
 	"log"
+	"math"
 	"path/filepath"
 	"strings"
 
@@ -38,9 +39,17 @@ const (
 	testRatioExcellentThreshold = 2.0  // Up to 2:1 is excellent
 	testRatioCautionThreshold   = 0.75 // Below 0.75:1 needs attention
 	testRatioWarningThreshold   = 0.5  // Below 0.5:1 is concerning
+	
+	// Float comparison tolerance to handle precision issues
+	floatTolerance = 1e-9
 )
 
 const testRatioBenchmarkContext = "Test-to-code ratio ≈1:1 to 2:1 ensures comprehensive coverage without excessive overhead (Clean Code - Robert C. Martin)."
+
+// floatEquals compares two floats with tolerance to handle precision issues
+func floatEquals(a, b float64) bool {
+	return math.Abs(a-b) < floatTolerance
+}
 
 // TestRatioStats represents the test-to-code ratio analysis
 type TestRatioStats struct {
@@ -144,7 +153,7 @@ func calculateTestRatio(testLOC, sourceLOC int) (float64, string) {
 // classifyTestRatio classifies the test ratio and provides recommendations
 func classifyTestRatio(ratio float64) (string, string) {
 	switch {
-	case ratio == 0.0:
+	case floatEquals(ratio, 0.0):
 		return "Critical", "Urgent: add comprehensive test coverage"
 	case ratio < 0.25:
 		return "Critical", "Urgent: add comprehensive test coverage"
@@ -154,7 +163,7 @@ func classifyTestRatio(ratio float64) (string, string) {
 		return "Caution", "Consider adding more tests"
 	case ratio < testRatioHealthyThreshold:
 		return "Caution", "Consider adding more tests"
-	case ratio == testRatioHealthyThreshold:
+	case floatEquals(ratio, testRatioHealthyThreshold):
 		return "Healthy", "Good balance of tests and source code"
 	case ratio <= testRatioExcellentThreshold:
 		return "Excellent", "Excellent test coverage"
@@ -184,7 +193,7 @@ func analyzeTestRatio(repo *git.Repository, pathArg string) (*TestRatioStats, er
 	
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathArg) {
 			return nil
 		}
 		

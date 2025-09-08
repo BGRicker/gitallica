@@ -442,3 +442,52 @@ func TestTestRatioEdgeCases(t *testing.T) {
 		}
 	})
 }
+
+func TestFloatEquals(t *testing.T) {
+	tests := []struct {
+		name     string
+		a, b     float64
+		expected bool
+	}{
+		{
+			name:     "exact match",
+			a:        1.0,
+			b:        1.0,
+			expected: true,
+		},
+		{
+			name:     "within tolerance",
+			a:        1.0,
+			b:        1.0000000001,
+			expected: true,
+		},
+		{
+			name:     "outside tolerance",
+			a:        1.0,
+			b:        1.001,
+			expected: false,
+		},
+		{
+			name:     "zero comparison",
+			a:        0.0,
+			b:        0.0000000001,
+			expected: true,
+		},
+		{
+			name:     "negative numbers",
+			a:        -1.0,
+			b:        -1.0000000001,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := floatEquals(tt.a, tt.b)
+			if result != tt.expected {
+				t.Errorf("floatEquals(%f, %f) = %v, want %v", tt.a, tt.b, result, tt.expected)
+			}
+		})
+	}
+}
+
