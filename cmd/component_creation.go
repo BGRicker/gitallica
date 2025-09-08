@@ -1,0 +1,348 @@
+package cmd
+
+import (
+	"fmt"
+	"log"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/storer"
+	"github.com/spf13/cobra"
+)
+
+const componentCreationContext = "Sudden spikes in component creation often indicate architectural sprawl or lack of design discipline."
+
+// ComponentType represents different types of components across frameworks
+type ComponentType struct {
+	Name        string
+	Patterns    []*regexp.Regexp
+	Extensions  []string
+	Description string
+}
+
+// ComponentCreationStats tracks component creation statistics
+type ComponentCreationStats struct {
+	ComponentType string
+	Count         int
+	Files         []string
+	FirstSeen     time.Time
+	LastSeen      time.Time
+}
+
+// ComponentCreationRate tracks creation rate over time
+type ComponentCreationRate struct {
+	TimeWindow    string
+	TotalCreated  int
+	ByType        map[string]int
+	SpikeDetected bool
+	SpikeReason   string
+}
+
+// Define component patterns for different frameworks
+var componentTypes = map[string]ComponentType{
+	"javascript-class": {
+		Name:        "JavaScript Class",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`class\s+\w+`)},
+		Extensions:  []string{".js", ".jsx", ".ts", ".tsx"},
+		Description: "ES6+ classes and TypeScript classes",
+	},
+	"react-component": {
+		Name:        "React Component",
+		Patterns:    []*regexp.Regexp{
+			regexp.MustCompile(`function\s+\w+.*\(.*\)\s*{`),
+			regexp.MustCompile(`const\s+\w+\s*=\s*\(.*\)\s*=>`),
+			regexp.MustCompile(`export\s+default\s+function`),
+		},
+		Extensions:  []string{".js", ".jsx", ".ts", ".tsx"},
+		Description: "React functional and class components",
+	},
+	"ruby-model": {
+		Name:        "Ruby Model",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`class\s+\w+\s*<\s*ApplicationRecord`)},
+		Extensions:  []string{".rb"},
+		Description: "Rails ActiveRecord models",
+	},
+	"ruby-controller": {
+		Name:        "Ruby Controller",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`class\s+\w+Controller\s*<\s*ApplicationController`)},
+		Extensions:  []string{".rb"},
+		Description: "Rails controllers",
+	},
+	"ruby-service": {
+		Name:        "Ruby Service",
+		Patterns:    []*regexp.Regexp{
+			regexp.MustCompile(`class\s+\w+Service`),
+			regexp.MustCompile(`class\s+\w+\s*<\s*Service`),
+		},
+		Extensions:  []string{".rb"},
+		Description: "Ruby service objects",
+	},
+	"python-class": {
+		Name:        "Python Class",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`class\s+\w+.*:`)},
+		Extensions:  []string{".py"},
+		Description: "Python classes",
+	},
+	"go-struct": {
+		Name:        "Go Struct",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`type\s+\w+\s+struct`)},
+		Extensions:  []string{".go"},
+		Description: "Go structs",
+	},
+	"go-interface": {
+		Name:        "Go Interface",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`type\s+\w+\s+interface`)},
+		Extensions:  []string{".go"},
+		Description: "Go interfaces",
+	},
+	"java-class": {
+		Name:        "Java Class",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`public\s+class\s+\w+`)},
+		Extensions:  []string{".java"},
+		Description: "Java classes",
+	},
+	"csharp-class": {
+		Name:        "C# Class",
+		Patterns:    []*regexp.Regexp{regexp.MustCompile(`public\s+class\s+\w+`)},
+		Extensions:  []string{".cs"},
+		Description: "C# classes",
+	},
+}
+
+// detectComponentsInFile analyzes a file to detect component definitions
+func detectComponentsInFile(filePath string, content string) map[string]int {
+	detected := make(map[string]int)
+	ext := strings.ToLower(filepath.Ext(filePath))
+	
+	for typeKey, componentType := range componentTypes {
+		// Check if file extension matches
+		extensionMatch := false
+		for _, allowedExt := range componentType.Extensions {
+			if ext == allowedExt {
+				extensionMatch = true
+				break
+			}
+		}
+		
+		if !extensionMatch {
+			continue
+		}
+		
+		// Check patterns
+		for _, pattern := range componentType.Patterns {
+			matches := pattern.FindAllString(content, -1)
+			if len(matches) > 0 {
+				detected[typeKey] += len(matches)
+			}
+		}
+	}
+	
+	return detected
+}
+
+// analyzeComponentCreation analyzes component creation patterns in the repository
+func analyzeComponentCreation(repo *git.Repository, since time.Time, framework string) ([]ComponentCreationStats, error) {
+	ref, err := repo.Head()
+	if err != nil {
+		return nil, fmt.Errorf("could not get HEAD: %v", err)
+	}
+	
+	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	if err != nil {
+		return nil, fmt.Errorf("could not get commits: %v", err)
+	}
+	defer cIter.Close()
+	
+	componentStats := make(map[string]*ComponentCreationStats)
+	
+	err = cIter.ForEach(func(c *object.Commit) error {
+		if !since.IsZero() && c.Committer.When.Before(since) {
+			return storer.ErrStop
+		}
+		
+		// Get the commit's tree
+		tree, err := c.Tree()
+		if err != nil {
+			return nil
+		}
+		
+		// Analyze files in this commit
+		err = tree.Files().ForEach(func(f *object.File) error {
+			// Skip binary files
+			isBinary, err := f.IsBinary()
+			if err != nil || isBinary {
+				return nil
+			}
+			
+			// Filter by framework if specified
+			if framework != "" && !strings.Contains(strings.ToLower(f.Name), strings.ToLower(framework)) {
+				return nil
+			}
+			
+			content, err := f.Contents()
+			if err != nil {
+				return nil
+			}
+			
+			detected := detectComponentsInFile(f.Name, content)
+			for componentType, count := range detected {
+				if stats, exists := componentStats[componentType]; exists {
+					stats.Count += count
+					stats.Files = append(stats.Files, f.Name)
+					if c.Committer.When.Before(stats.FirstSeen) {
+						stats.FirstSeen = c.Committer.When
+					}
+					if c.Committer.When.After(stats.LastSeen) {
+						stats.LastSeen = c.Committer.When
+					}
+				} else {
+					componentStats[componentType] = &ComponentCreationStats{
+						ComponentType: componentType,
+						Count:         count,
+						Files:         []string{f.Name},
+						FirstSeen:     c.Committer.When,
+						LastSeen:      c.Committer.When,
+					}
+				}
+			}
+			
+			return nil
+		})
+		
+		return err
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("error analyzing commits: %v", err)
+	}
+	
+	// Convert to slice and sort by count
+	var result []ComponentCreationStats
+	for _, stats := range componentStats {
+		result = append(result, *stats)
+	}
+	
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Count > result[j].Count
+	})
+	
+	return result, nil
+}
+
+// calculateCreationRate calculates the component creation rate over time
+func calculateCreationRate(stats []ComponentCreationStats, timeWindow string) ComponentCreationRate {
+	totalCreated := 0
+	byType := make(map[string]int)
+	
+	for _, stat := range stats {
+		totalCreated += stat.Count
+		byType[stat.ComponentType] = stat.Count
+	}
+	
+	rate := ComponentCreationRate{
+		TimeWindow:   timeWindow,
+		TotalCreated: totalCreated,
+		ByType:       byType,
+	}
+	
+	// Simple spike detection: if more than 10 components created in recent period
+	if totalCreated > 10 {
+		rate.SpikeDetected = true
+		rate.SpikeReason = fmt.Sprintf("High component creation rate: %d components", totalCreated)
+	}
+	
+	return rate
+}
+
+// printComponentCreationStats prints component creation statistics
+func printComponentCreationStats(stats []ComponentCreationStats, rate ComponentCreationRate, framework string) {
+	fmt.Printf("New Component Creation Rate Analysis\n")
+	fmt.Printf("Time window: %s\n", rate.TimeWindow)
+	if framework != "" {
+		fmt.Printf("Framework filter: %s\n", framework)
+	}
+	fmt.Printf("Total components created: %d\n", rate.TotalCreated)
+	
+	if rate.SpikeDetected {
+		fmt.Printf("⚠️  %s\n", rate.SpikeReason)
+	} else {
+		fmt.Printf("✅ Healthy component creation rate\n")
+	}
+	
+	fmt.Printf("\nContext: %s\n", componentCreationContext)
+	fmt.Printf("\nTop components by creation count:\n")
+	fmt.Printf("Component Type                    Count Files\n")
+	fmt.Printf("---------------------------------- ----- -----\n")
+	
+	for _, stat := range stats {
+		if len(stat.Files) > 0 {
+			componentName := componentTypes[stat.ComponentType].Name
+			fmt.Printf("%-32s %5d %5d\n", componentName, stat.Count, len(stat.Files))
+		}
+	}
+}
+
+// componentCreationCmd represents the component-creation command
+var componentCreationCmd = &cobra.Command{
+	Use:   "component-creation",
+	Short: "Analyze new component creation rate",
+	Long: `Track the rate of new component creation across different frameworks.
+Helps identify architectural sprawl and design discipline issues.
+
+Supports multiple frameworks:
+- JavaScript/TypeScript: Classes, React components
+- Ruby/Rails: Models, controllers, services
+- Python: Classes and modules
+- Go: Structs and interfaces
+- Java: Classes and interfaces
+- C#: Classes and interfaces`,
+	Run: func(cmd *cobra.Command, args []string) {
+		repo, err := git.PlainOpen(".")
+		if err != nil {
+			log.Fatalf("Could not open repository: %v", err)
+		}
+		
+		lastArg, _ := cmd.Flags().GetString("last")
+		frameworkArg, _ := cmd.Flags().GetString("framework")
+		limitArg, _ := cmd.Flags().GetInt("limit")
+		
+		since := time.Time{}
+		if lastArg != "" {
+			cutoff, err := parseDurationArg(lastArg)
+			if err != nil {
+				log.Fatalf("Could not parse --last argument: %v", err)
+			}
+			since = cutoff
+		}
+		
+		stats, err := analyzeComponentCreation(repo, since, frameworkArg)
+		if err != nil {
+			log.Fatalf("Error analyzing component creation: %v", err)
+		}
+		
+		// Limit results if specified
+		if limitArg > 0 && len(stats) > limitArg {
+			stats = stats[:limitArg]
+		}
+		
+		timeWindow := "all time"
+		if !since.IsZero() {
+			timeWindow = fmt.Sprintf("last %s", lastArg)
+		}
+		
+		rate := calculateCreationRate(stats, timeWindow)
+		printComponentCreationStats(stats, rate, frameworkArg)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(componentCreationCmd)
+	componentCreationCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
+	componentCreationCmd.Flags().String("framework", "", "Filter by framework (javascript, ruby, python, go, java, csharp)")
+	componentCreationCmd.Flags().Int("limit", 10, "Number of top results to show")
+}
