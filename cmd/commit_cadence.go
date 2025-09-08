@@ -164,7 +164,7 @@ func analyzeCommitCadence(repo *git.Repository, pathArg string, lastArg string, 
 	return stats, nil
 }
 
-// groupCommitsByTimePeriod groups commits into time-based buckets
+// groupCommitsByTimePeriod groups commits into time-based buckets with zero-fill for missing periods
 func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod {
 	if len(commits) == 0 {
 		return []TimePeriod{}
@@ -175,7 +175,7 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 		return commits[i].Time.Before(commits[j].Time)
 	})
 	
-	var periods []TimePeriod
+	// First pass: collect commit counts by period
 	periodMap := make(map[string]int)
 	periodStarts := make(map[string]time.Time)
 	periodEnds := make(map[string]time.Time)
@@ -238,19 +238,93 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 		}
 	}
 	
-	// Convert map to sorted slice
-	var keys []string
-	for key := range periodMap {
-		keys = append(keys, key)
+	// Second pass: create continuous time series with zero-fill for missing periods
+	if len(periodStarts) == 0 {
+		return []TimePeriod{}
 	}
-	sort.Strings(keys)
 	
-	for _, key := range keys {
+	// Find the time range from earliest to latest commit
+	earliestTime := commits[0].Time
+	latestTime := commits[len(commits)-1].Time
+	
+	// Generate complete time series from earliest to latest period
+	var periods []TimePeriod
+	current := earliestTime
+	
+	for current.Before(latestTime) || current.Equal(latestTime) {
+		var periodKey string
+		var periodStart, periodEnd time.Time
+		
+		// Use same period calculation logic as in first pass
+		switch period {
+		case "day":
+			year, month, day := current.Date()
+			periodStart = time.Date(year, month, day, 0, 0, 0, 0, current.Location())
+			periodEnd = periodStart.Add(24*time.Hour - time.Nanosecond)
+			periodKey = periodStart.Format("2006-01-02")
+		case "week":
+			utcTime := current.UTC()
+			year, week := utcTime.ISOWeek()
+			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+			jan1Weekday := jan1.Weekday()
+			if jan1Weekday == time.Sunday {
+				jan1Weekday = 7
+			}
+			daysToFirstMonday := 1 - int(jan1Weekday)
+			if daysToFirstMonday > 0 {
+				daysToFirstMonday -= 7
+			}
+			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
+			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
+			periodKey = periodStart.Format("2006-W02")
+		case "month":
+			year, month, _ := current.Date()
+			periodStart = time.Date(year, month, 1, 0, 0, 0, 0, current.Location())
+			periodEnd = periodStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
+			periodKey = periodStart.Format("2006-01")
+		default:
+			// Default to week
+			utcTime := current.UTC()
+			year, week := utcTime.ISOWeek()
+			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+			jan1Weekday := jan1.Weekday()
+			if jan1Weekday == time.Sunday {
+				jan1Weekday = 7
+			}
+			daysToFirstMonday := 1 - int(jan1Weekday)
+			if daysToFirstMonday > 0 {
+				daysToFirstMonday -= 7
+			}
+			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
+			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
+			periodKey = periodStart.Format("2006-W02")
+		}
+		
+		// Get commit count for this period (zero if no commits)
+		commitCount := periodMap[periodKey]
+		
 		periods = append(periods, TimePeriod{
-			Start:       periodStarts[key],
-			End:         periodEnds[key],
-			CommitCount: periodMap[key],
+			Start:       periodStart,
+			End:         periodEnd,
+			CommitCount: commitCount,
 		})
+		
+		// Move to next period
+		switch period {
+		case "day":
+			current = periodStart.Add(24 * time.Hour)
+		case "week":
+			current = periodStart.Add(7 * 24 * time.Hour)
+		case "month":
+			current = periodStart.AddDate(0, 1, 0)
+		default:
+			current = periodStart.Add(7 * 24 * time.Hour)
+		}
+		
+		// Safety check to prevent infinite loops
+		if len(periods) > 1000 {
+			break
+		}
 	}
 	
 	return periods
