@@ -17,6 +17,11 @@ import (
 
 const componentCreationContext = "Sudden spikes in component creation often indicate architectural sprawl or lack of design discipline."
 
+// componentCreationSpikeThreshold defines the threshold for detecting spikes in component creation.
+// Based on industry research, creating more than 10 components in a short period often indicates
+// architectural sprawl or lack of design discipline (Kent Beck's simple design principle).
+const componentCreationSpikeThreshold = 10
+
 // ComponentType represents different types of components across frameworks
 type ComponentType struct {
 	Name        string
@@ -54,9 +59,12 @@ var componentTypes = map[string]ComponentType{
 	"react-component": {
 		Name:        "React Component",
 		Patterns:    []*regexp.Regexp{
-			regexp.MustCompile(`function\s+\w+.*\(.*\)\s*{`),
-			regexp.MustCompile(`const\s+\w+\s*=\s*\(.*\)\s*=>`),
-			regexp.MustCompile(`export\s+default\s+function`),
+			// Match class components: class Foo extends React.Component
+			regexp.MustCompile(`class\s+\w+\s+extends\s+(React\.)?Component`),
+			// Match functions that return JSX: return <Something ... or
+			regexp.MustCompile(`return\s+\(<\w+`),
+			// Match functions that return JSX directly: return <Something
+			regexp.MustCompile(`return\s+<\w+`),
 		},
 		Extensions:  []string{".js", ".jsx", ".ts", ".tsx"},
 		Description: "React functional and class components",
@@ -179,9 +187,30 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 				return nil
 			}
 			
-			// Filter by framework if specified
-			if framework != "" && !strings.Contains(strings.ToLower(f.Name), strings.ToLower(framework)) {
-				return nil
+			// Filter by framework if specified - check file extension and detected components
+			if framework != "" {
+				ext := strings.ToLower(filepath.Ext(f.Name))
+				frameworkMatch := false
+				
+				// Check if file extension matches framework
+				switch framework {
+				case "javascript":
+					frameworkMatch = ext == ".js" || ext == ".jsx" || ext == ".ts" || ext == ".tsx"
+				case "ruby":
+					frameworkMatch = ext == ".rb"
+				case "python":
+					frameworkMatch = ext == ".py"
+				case "go":
+					frameworkMatch = ext == ".go"
+				case "java":
+					frameworkMatch = ext == ".java"
+				case "csharp":
+					frameworkMatch = ext == ".cs"
+				}
+				
+				if !frameworkMatch {
+					return nil
+				}
 			}
 			
 			content, err := f.Contents()
@@ -250,10 +279,10 @@ func calculateCreationRate(stats []ComponentCreationStats, timeWindow string) Co
 		ByType:       byType,
 	}
 	
-	// Simple spike detection: if more than 10 components created in recent period
-	if totalCreated > 10 {
+	// Simple spike detection: if more than threshold components created in recent period
+	if totalCreated > componentCreationSpikeThreshold {
 		rate.SpikeDetected = true
-		rate.SpikeReason = fmt.Sprintf("High component creation rate: %d components", totalCreated)
+		rate.SpikeReason = fmt.Sprintf("High component creation rate: %d components (threshold: %d)", totalCreated, componentCreationSpikeThreshold)
 	}
 	
 	return rate

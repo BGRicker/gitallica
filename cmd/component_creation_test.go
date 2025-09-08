@@ -29,6 +29,23 @@ func TestDetectComponentsInFile(t *testing.T) {
 			},
 		},
 		{
+			name:     "React class component",
+			filePath: "Component.jsx",
+			content:  "class MyComponent extends React.Component {\n  render() {\n    return <div>Hello</div>;\n  }\n}",
+			expectedTypes: map[string]int{
+				"javascript-class": 1, // Matches the class pattern
+				"react-component":  2, // Matches both class extends and JSX return
+			},
+		},
+		{
+			name:     "React component with parentheses",
+			filePath: "Component.jsx",
+			content:  "function MyComponent() {\n  return (<div>Hello</div>);\n}",
+			expectedTypes: map[string]int{
+				"react-component": 1,
+			},
+		},
+		{
 			name:     "Ruby model",
 			filePath: "user.rb",
 			content:  "class User < ApplicationRecord\n  validates :email, presence: true\nend",
@@ -87,17 +104,17 @@ func TestDetectComponentsInFile(t *testing.T) {
 		{
 			name:     "Multiple components",
 			filePath: "mixed.js",
-			content:  "class MyClass {}\nfunction MyComponent() {}\nconst AnotherComponent = () => {}",
+			content:  "class MyClass {}\nfunction MyComponent() {\n  return <div>Hello</div>;\n}\nconst AnotherComponent = () => {\n  return <span>World</span>;\n}",
 			expectedTypes: map[string]int{
 				"javascript-class": 1,
-				"react-component":  2,
+				"react-component":  2, // Two JSX returns
 			},
 		},
 		{
-			name:          "No components",
-			filePath:      "plain.txt",
-			content:       "This is just plain text",
-			expectedTypes: map[string]int{},
+			name:          "Non-React function (should not match)",
+			filePath:      "utils.js",
+			content:       "function calculateTotal(items) {\n  return items.reduce((sum, item) => sum + item.price, 0);\n}",
+			expectedTypes: map[string]int{}, // Should not match any React component patterns
 		},
 		{
 			name:          "Wrong extension",
@@ -155,7 +172,7 @@ func TestCalculateCreationRate(t *testing.T) {
 			timeWindow:     "last 7d",
 			expectedTotal:  13,
 			expectedSpike:  true,
-			expectedReason: "High component creation rate: 13 components",
+			expectedReason: "High component creation rate: 13 components (threshold: 10)",
 		},
 		{
 			name:           "No components",
