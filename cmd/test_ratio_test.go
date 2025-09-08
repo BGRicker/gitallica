@@ -31,6 +31,7 @@ func TestIsTestFile(t *testing.T) {
 		filePath string
 		expected bool
 	}{
+		// Positive cases - should be detected as test files
 		{
 			name:     "Go test file",
 			filePath: "cmd/churn_test.go",
@@ -47,8 +48,18 @@ func TestIsTestFile(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "Python test file",
+			name:     "Python test file in tests directory",
 			filePath: "tests/test_models.py",
+			expected: true,
+		},
+		{
+			name:     "Python test file with test_ prefix",
+			filePath: "models/test_user.py",
+			expected: true,
+		},
+		{
+			name:     "Python test file with _test suffix",
+			filePath: "models/user_test.py",
 			expected: true,
 		},
 		{
@@ -71,6 +82,18 @@ func TestIsTestFile(t *testing.T) {
 			filePath: "src/__tests__/component.test.js",
 			expected: true,
 		},
+		{
+			name:     "TypeScript React test",
+			filePath: "src/components/Button.test.tsx",
+			expected: true,
+		},
+		{
+			name:     "JavaScript spec file",
+			filePath: "src/components/Button.spec.js",
+			expected: true,
+		},
+		
+		// Negative cases - should NOT be detected as test files
 		{
 			name:     "Regular Go file",
 			filePath: "cmd/churn.go",
@@ -99,6 +122,43 @@ func TestIsTestFile(t *testing.T) {
 		{
 			name:     "Package.json",
 			filePath: "package.json",
+			expected: false,
+		},
+		
+		// False positive prevention cases
+		{
+			name:     "testdata.go should not be detected",
+			filePath: "pkg/testdata.go",
+			expected: false,
+		},
+		{
+			name:     "contest.go should not be detected",
+			filePath: "algorithms/contest.go",
+			expected: false,
+		},
+		{
+			name:     "latest.go should not be detected", 
+			filePath: "src/latest.go",
+			expected: false,
+		},
+		{
+			name:     "test.go without _test suffix should not be detected",
+			filePath: "pkg/test.go",
+			expected: false,
+		},
+		{
+			name:     "testing.go should not be detected",
+			filePath: "pkg/testing.go",
+			expected: false,
+		},
+		{
+			name:     "prototype.go should not be detected",
+			filePath: "experiments/prototype.go",
+			expected: false,
+		},
+		{
+			name:     "fastest.js should not be detected",
+			filePath: "src/fastest.js",
 			expected: false,
 		},
 	}
