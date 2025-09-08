@@ -157,7 +157,7 @@ func TestDirectoryEntropyStats(t *testing.T) {
 		{
 			name:     "mixed directory",
 			fileTypes: map[string]int{"go": 5, "js": 3, "py": 2, "rb": 1},
-			expectedEntropy: 1.790, // Calculated entropy: -0.5*log2(0.5) - 0.3*log2(0.3) - 0.2*log2(0.2) - 0.1*log2(0.1)
+			expectedEntropy: 1.790, // Calculated entropy: -(5/11)*log2(5/11) - (3/11)*log2(3/11) - (2/11)*log2(2/11) - (1/11)*log2(1/11)
 			expectedLevel:   "High", // Assuming avgEntropy = 1.0
 		},
 		{

@@ -69,6 +69,7 @@ type ProjectType struct {
 // Detect project type based on file patterns and structure
 func detectProjectType(tree *object.Tree) ProjectType {
 	var fileExtensions []string
+	var fileNames []string
 	var dirNames []string
 	
 	tree.Files().ForEach(func(f *object.File) error {
@@ -77,6 +78,9 @@ func detectProjectType(tree *object.Tree) ProjectType {
 			fileExtensions = append(fileExtensions, ext)
 		}
 		
+		fileName := strings.ToLower(filepath.Base(f.Name))
+		fileNames = append(fileNames, fileName)
+		
 		dir := filepath.Dir(f.Name)
 		if dir != "." && dir != "" {
 			dirNames = append(dirNames, dir)
@@ -84,8 +88,8 @@ func detectProjectType(tree *object.Tree) ProjectType {
 		return nil
 	})
 	
-	// Detect Go project
-	if contains(fileExtensions, ".go") && contains(fileExtensions, ".mod") {
+	// Detect Go project - check for go.mod file specifically
+	if contains(fileExtensions, ".go") && contains(fileNames, "go.mod") {
 		return ProjectType{
 			Name: "Go CLI/Application",
 			RootPatterns: []string{".go", ".mod", ".sum", ".md", ".txt", ".yml", ".yaml"},
@@ -101,8 +105,8 @@ func detectProjectType(tree *object.Tree) ProjectType {
 		}
 	}
 	
-	// Detect Node.js project
-	if contains(fileExtensions, ".js") && contains(fileExtensions, ".json") {
+	// Detect Node.js project - check for package.json specifically
+	if contains(fileExtensions, ".js") && contains(fileNames, "package.json") {
 		return ProjectType{
 			Name: "Node.js Application",
 			RootPatterns: []string{".js", ".json", ".md", ".txt", ".yml", ".yaml"},
@@ -321,11 +325,12 @@ func analyzeDirectoryEntropy(repo *git.Repository, since time.Time) (*DirectoryE
 	// Separate high and low entropy directories
 	var highEntropyDirs, lowEntropyDirs []DirectoryEntropyStats
 	for _, dir := range dirs {
-		if dir.EntropyLevel == "High" {
+		if dir.EntropyLevel == "Critical" || dir.EntropyLevel == "High" {
 			highEntropyDirs = append(highEntropyDirs, dir)
 		} else if dir.EntropyLevel == "Low" {
 			lowEntropyDirs = append(lowEntropyDirs, dir)
 		}
+		// Medium entropy directories are not shown in either category
 	}
 	
 	timeWindow := "all time"
@@ -359,8 +364,8 @@ func printDirectoryEntropyStats(analysis *DirectoryEntropyAnalysis) {
 		fmt.Printf("Directory                    Files Types Entropy Level Recommendation\n")
 		fmt.Printf("---------------------------- ----- ----- ---------- ----------------\n")
 		for _, dir := range analysis.HighEntropyDirs {
-			fmt.Printf("%-28s %5d %5d %10s %s\n", 
-				dir.Path, dir.FileCount, len(dir.FileTypes), dir.EntropyLevel, dir.Recommendation)
+			fmt.Printf("%-28s %5d %5d %10.3f %s\n", 
+				dir.Path, dir.FileCount, len(dir.FileTypes), dir.Entropy, dir.Recommendation)
 		}
 		fmt.Println()
 	}
@@ -370,8 +375,8 @@ func printDirectoryEntropyStats(analysis *DirectoryEntropyAnalysis) {
 		fmt.Printf("Directory                    Files Types Entropy Level Recommendation\n")
 		fmt.Printf("---------------------------- ----- ----- ---------- ----------------\n")
 		for _, dir := range analysis.LowEntropyDirs {
-			fmt.Printf("%-28s %5d %5d %10s %s\n", 
-				dir.Path, dir.FileCount, len(dir.FileTypes), dir.EntropyLevel, dir.Recommendation)
+			fmt.Printf("%-28s %5d %5d %10.3f %s\n", 
+				dir.Path, dir.FileCount, len(dir.FileTypes), dir.Entropy, dir.Recommendation)
 		}
 		fmt.Println()
 	}
