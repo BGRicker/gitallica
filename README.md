@@ -360,6 +360,49 @@ Analyzes onboarding patterns for the `src/` directory over the last 6 months.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze high-risk commits:
+
+```bash
+gitallica high-risk-commits
+```
+Analyzes all commits to identify those with high risk due to size or complexity.
+
+```bash
+gitallica high-risk-commits --limit 5
+```
+Shows top 5 risky commits with detailed analysis.
+
+```bash
+gitallica high-risk-commits --last 30d --path src/
+```
+Analyzes high-risk commits in the `src/` directory over the last 30 days.
+
+**Research-Based Analysis:**
+- **Line Change Detection**: Identifies commits with >400 lines changed (high risk) or >800 lines (critical risk)
+- **File Complexity Tracking**: Flags commits touching >12 files (high risk) or >20 files (critical risk)  
+- **Review Impact Assessment**: Based on Kent Beck and Martin Fowler's principles of small, incremental changes
+- **Rollback Risk Evaluation**: Large commits reduce review effectiveness and increase rollback complexity
+
+**Risk Classifications:**
+- **Low**: Small, focused commits (≤400 lines, ≤12 files)
+- **Moderate**: Sizeable commits that warrant attention
+- **High**: Large commits requiring careful review (>400 lines OR ≥12 files)
+- **Critical**: Monster commits with extremely high risk (≥800 lines OR ≥20 files)
+
+**Insights Provided:**
+- **Risk distribution** across all analyzed commits
+- **Average commit size** in lines and files changed
+- **Largest commit identification** with detailed metrics
+- **Risky commit details** with authors, dates, and change scope
+- **Actionable recommendations** for improving commit hygiene
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--limit` : Number of risky commits to show in detailed output (default 10).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
