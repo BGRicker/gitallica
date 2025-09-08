@@ -40,7 +40,7 @@ const (
 	churnFilesCautionThreshold  = 20
 )
 
-const churnFilesBenchmarkContext = "Files with >20% churn often indicate architectural instability or frequent refactoring needs."
+const churnFilesBenchmarkContext = "High relative churn correlates with higher defect density (Nagappan & Ball research)."
 
 // FileChurnStats represents churn statistics for a single file.
 type FileChurnStats struct {

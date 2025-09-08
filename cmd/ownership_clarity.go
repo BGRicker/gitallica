@@ -33,34 +33,15 @@ import (
 )
 
 const (
-	// Thresholds for file ownership classification, based on collective ownership
-	// research (see Martin Fowler, "Collective Ownership").
-	
-	// ownershipHealthyMinThreshold applies only to files with more than 3
-	// contributors.
-	// If the top contributor owns at least 50% of the commits, the file is considered
-	// to have clear accountability.
-	// This threshold is based on research suggesting that moderate concentration of
-	// ownership supports maintainability.
-	ownershipHealthyMinThreshold = 0.50
-	
-	// ownershipConcentratedThreshold applies to all files.
-	// If the top contributor owns more than 80% of the commits, the file may be at
-	// risk of bottlenecks or knowledge silos.
-	// This threshold is based on studies indicating that excessive concentration can
-	// harm team resilience and code review effectiveness.
-	ownershipConcentratedThreshold = 0.80
-	
-	// ownershipCriticalThreshold applies to files with many contributors.
-	// Below 25% ownership in large teams indicates diffuse ownership without
-	// clear maintainers.
-	ownershipCriticalThreshold = 0.25
-	
-	// ownershipMinContributorsForAnalysis: Only analyze diffuse ownership when ≥10 contributors
-	ownershipMinContributorsForAnalysis = 10
+	// Ownership thresholds based on Microsoft research
+	// >9 contributors increases vulnerability likelihood 16x
+	// Strong ownership (one developer ≥80%) tends to improve quality
+	ownershipStrongThreshold = 0.80  // One developer owns ≥80% of changes
+	ownershipRiskThreshold   = 9     // >9 contributors increases vulnerability risk
+	ownershipMinContributorsForAnalysis = 3 // Only analyze files with ≥3 contributors
 )
 
-const ownershipBenchmarkContext = "Balanced ownership prevents both bottlenecks and diffuse responsibility (Collective Ownership - Martin Fowler)."
+const ownershipBenchmarkContext = "Microsoft Research: Strong code ownership (one developer ≥80%) improves quality, while files with >9 contributors are 16x more likely to have vulnerabilities (Bird et al., MSR 2011)."
 
 // OwnershipClarityStats represents the ownership clarity analysis for files
 type OwnershipClarityStats struct {
@@ -123,27 +104,23 @@ func classifyOwnershipClarity(topOwnership float64, totalContributors int) (stri
 		return "Healthy", "Good ownership balance"
 	}
 	
-	// Small teams (≤3 contributors) are more tolerant of diffuse ownership
-	if totalContributors <= 3 {
-		if topOwnership >= ownershipConcentratedThreshold {
-			return "Caution", "Consider encouraging more contributors to avoid bottlenecks"
-		}
-		return "Healthy", "Good ownership balance"
+	// Based on Microsoft research findings
+	// Strong ownership tends to improve quality regardless of contributor count
+	if topOwnership >= ownershipStrongThreshold {
+		return "Healthy", "Strong ownership tends to improve quality"
 	}
 	
-	// For larger teams, apply stricter analysis
-	switch {
-	case topOwnership >= ownershipConcentratedThreshold:
-		return "Caution", "Consider encouraging more contributors to avoid bottlenecks"
-	case topOwnership >= ownershipHealthyMinThreshold:
-		return "Healthy", "Good ownership balance"
-	case topOwnership >= ownershipCriticalThreshold:
-		return "Warning", "Consider assigning clearer ownership or primary maintainers"
-	case totalContributors >= ownershipMinContributorsForAnalysis:
-		return "Critical", "Urgent: assign primary maintainers for clear ownership"
-	default:
-		return "Warning", "Consider assigning clearer ownership or primary maintainers"
+	// Excessive number of contributors without clear owner increases risk
+	if totalContributors > ownershipRiskThreshold {
+		return "Critical", "Too many contributors (>9) increases vulnerability risk 16x"
 	}
+	
+	// Small teams benefit from knowledge sharing
+	if totalContributors <= 3 {
+		return "Caution", "Small team – consider knowledge sharing"
+	}
+	
+	return "Warning", "Multiple contributors without clear ownership"
 }
 
 // analyzeOwnershipClarity analyzes ownership clarity across repository files

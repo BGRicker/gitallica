@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const churnBenchmarkContext = "Healthy codebases typically maintain churn below ~15% (KPI Depot; Opsera benchmarks)."
+const churnBenchmarkContext = "High churn indicates instability and potential architectural issues (Microsoft Research)."
 
 const (
 	churnHealthyThreshold  = 5

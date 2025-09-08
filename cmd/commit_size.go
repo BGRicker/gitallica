@@ -35,14 +35,13 @@ import (
 )
 
 const (
-	commitSizeLowThreshold      = 100
-	commitSizeMediumThreshold   = 400
-	commitSizeHighThreshold     = 800
-	commitSizeFilesLowThreshold = 5
-	commitSizeFilesHighThreshold = 15
+	// Commit size thresholds based on Google's Small CLs guidelines
+	commitSizeReasonableThreshold = 100  // ~100 lines is reasonable
+	commitSizeLargeThreshold      = 1000 // 1000+ lines is too large
+	commitSizeFilesReasonableThreshold = 10 // Reasonable number of files
 )
 
-const commitSizeBenchmarkContext = "Large commits reduce review effectiveness and rollback safety. Studies show reviews are most effective under 400 lines."
+const commitSizeBenchmarkContext = "Large commits reduce review effectiveness and rollback safety. According to Google's Small CLs guidelines, reviews are most effective when changes are around 100 lines; 1000+ lines is considered too large."
 
 // CommitSizeStats represents size and risk statistics for a single commit.
 type CommitSizeStats struct {
@@ -58,35 +57,21 @@ type CommitSizeStats struct {
 }
 
 // calculateCommitRisk determines the risk level and score for a commit based on its size.
-// Uses a weighted scoring system that prioritizes both line changes and file count.
+// Uses Google's Small CLs guidelines: ~100 lines reasonable, 1000+ lines too large
 func calculateCommitRisk(additions, deletions, filesChanged int) (string, int) {
 	totalChanges := additions + deletions
 	
 	// Calculate risk score: prioritize large changes and many files
-	// Files get 10 points each to reflect increased complexity
 	riskScore := totalChanges + (filesChanged * 10)
 	
 	var riskLevel string
-	// Use hybrid logic: score-based with file count modifiers
 	switch {
-	case riskScore >= commitSizeHighThreshold:
-		if filesChanged >= commitSizeFilesHighThreshold {
-			riskLevel = "Critical"
-		} else {
-			riskLevel = "High"
-		}
-	case riskScore >= commitSizeMediumThreshold:
-		if filesChanged >= commitSizeFilesLowThreshold {
-			riskLevel = "High"
-		} else {
-			riskLevel = "Medium"
-		}
-	case riskScore >= commitSizeLowThreshold:
-		if filesChanged < commitSizeFilesLowThreshold {
-			riskLevel = "Low"
-		} else {
-			riskLevel = "Medium"
-		}
+	case totalChanges >= commitSizeLargeThreshold || filesChanged >= 50:
+		riskLevel = "Critical"
+	case totalChanges >= commitSizeReasonableThreshold*3 || filesChanged >= commitSizeFilesReasonableThreshold*2:
+		riskLevel = "High"
+	case totalChanges >= commitSizeReasonableThreshold || filesChanged >= commitSizeFilesReasonableThreshold:
+		riskLevel = "Medium"
 	default:
 		riskLevel = "Low"
 	}

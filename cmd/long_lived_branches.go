@@ -13,12 +13,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Thresholds for long-lived branch analysis based on DORA and trunk-based development research
+// Thresholds for long-lived branch analysis based on trunk-based development guidance
 const (
-	// Branch age thresholds (in days)
-	healthyBranchMaxAge  = 2.0  // Elite teams merge daily, allow up to 2 days
-	warningBranchMaxAge  = 7.0  // Warning after a week
-	criticalBranchMaxAge = 21.0 // Critical after 3 weeks
+	// Branch age thresholds (in days) - based on trunk-based development principles
+	healthyBranchMaxAge  = 1.0  // Daily merges recommended
+	warningBranchMaxAge  = 3.0  // Warning after a few days
+	criticalBranchMaxAge = 7.0  // Critical after a week
 	
 	// Trunk-based compliance thresholds (percentage of healthy branches)
 	excellentComplianceThreshold = 0.8 // 80%+ healthy branches
@@ -75,7 +75,7 @@ Long-lived branches increase integration risk, reduce deployment frequency, and
 can lead to merge conflicts and delivery delays.
 
 Research basis:
-- "Branches older than a few days are risky. Trunk-based development recommends daily merges." — DORA
+- "Teams should merge into trunk at least once or several times per day" — DORA State of DevOps
 - Accelerate research shows elite teams merge frequently and keep branches short-lived
 - Trunk-based development principles emphasize small, frequent integrations
 
