@@ -64,46 +64,39 @@ func isTestFile(filePath string) bool {
 	fileName := filepath.Base(lowerPath)
 	dir := filepath.Dir(lowerPath)
 	
-	// Common test file patterns across languages
-	testPatterns := []string{
-		"_test.go",     // Go
-		".test.js",     // JavaScript/TypeScript
-		".test.jsx",    // React
-		".test.ts",     // TypeScript
-		".test.tsx",    // TypeScript React
-		".spec.js",     // JavaScript spec
-		".spec.jsx",    // React spec
-		".spec.ts",     // TypeScript spec
-		".spec.tsx",    // TypeScript React spec
-		"_spec.rb",     // Ruby RSpec
-		"test_",        // Python test prefix
-		"tests.py",     // Python tests
-		"test.java",    // Java test suffix
-		"tests.java",   // Java tests
-		"test.cs",      // C# test suffix
-		"tests.cs",     // C# tests
+	// Strict filename patterns
+	if strings.HasSuffix(fileName, "_test.go") { // Go
+		return true
+	}
+	if strings.HasSuffix(fileName, ".test.js") || strings.HasSuffix(fileName, ".test.jsx") || 
+	   strings.HasSuffix(fileName, ".test.ts") || strings.HasSuffix(fileName, ".test.tsx") {
+		return true
+	}
+	if strings.HasSuffix(fileName, ".spec.js") || strings.HasSuffix(fileName, ".spec.jsx") ||
+	   strings.HasSuffix(fileName, ".spec.ts") || strings.HasSuffix(fileName, ".spec.tsx") {
+		return true
+	}
+	if strings.HasSuffix(fileName, "_spec.rb") { // Ruby RSpec
+		return true
+	}
+	// Python: test_*.py or *_test.py
+	if strings.HasPrefix(fileName, "test_") && strings.HasSuffix(fileName, ".py") {
+		return true
+	}
+	if strings.HasSuffix(fileName, "_test.py") {
+		return true
+	}
+	// Java/C#: *Test.java, *Tests.java, *Test.cs, *Tests.cs
+	if strings.HasSuffix(fileName, "test.java") || strings.HasSuffix(fileName, "tests.java") ||
+	   strings.HasSuffix(fileName, "test.cs") || strings.HasSuffix(fileName, "tests.cs") {
+		return true
 	}
 	
-	// Check file name patterns
-	for _, pattern := range testPatterns {
-		if strings.HasSuffix(fileName, pattern) || strings.HasPrefix(fileName, pattern) {
-			return true
-		}
-	}
-	
-	// Check directory patterns
-	testDirs := []string{
-		"test",
-		"tests", 
-		"spec",
-		"specs",
-		"__tests__",     // Jest convention
-		"test/java",     // Maven convention
-		"src/test",      // Maven/Gradle convention
-	}
-	
-	for _, testDir := range testDirs {
-		if strings.Contains(dir, testDir) {
+	// Directory-based: match whole segments
+	segments := strings.Split(strings.Trim(dir, string(filepath.Separator)), string(filepath.Separator))
+	for i := range segments {
+		seg := segments[i]
+		if seg == "test" || seg == "tests" || seg == "spec" || seg == "specs" || seg == "__tests__" {
 			return true
 		}
 	}
