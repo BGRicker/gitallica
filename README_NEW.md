@@ -8,7 +8,7 @@
 
 ## Features
 
-- **14 Research-Backed Metrics**: Based on industry studies from Microsoft Research, DORA, and Clean Code principles
+- **15 Research-Backed Metrics**: Based on industry studies from Microsoft Research, DORA, and Clean Code principles
 - **DORA Compliance**: Elite/High/Medium/Low performance classification using Accelerate benchmarks
 - **Real Git Analysis**: Authentic repository analysis using go-git (no external dependencies)
 - **Comprehensive Coverage**: From code survival to change lead time, bus factor to commit cadence
@@ -57,8 +57,6 @@ go build -o gitallica .
 | `long-lived-branches` | Branch lifecycle analysis | DORA research |
 | `change-lead-time` | DORA lead time metrics | Accelerate research |
 
-**Note**: Review Bottlenecks (#13) requires GitHub API integration and is planned for future implementation.
-
 ## Usage Examples
 
 ### Basic Analysis
@@ -90,7 +88,7 @@ gitallica change-lead-time --limit 20 --method tag
 
 ## Research Foundation
 
-Gitallica implements 14 metrics based on authoritative sources:
+Gitallica implements 15 metrics based on authoritative sources:
 
 - **DORA Metrics**: Elite/High/Medium/Low performance classification
 - **Clean Code Principles**: Robert C. Martin's guidelines
