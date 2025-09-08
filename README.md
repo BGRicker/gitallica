@@ -447,6 +447,58 @@ Analyzes monthly commit trends for the `src/` directory to understand long-term 
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze long-lived branches:
+
+```bash
+gitallica long-lived-branches
+```
+Analyzes all branches to identify trunk-based development compliance and long-lived branch risks.
+
+```bash
+gitallica long-lived-branches --last 30d --limit 5
+```
+Shows the 5 most risky branches from the last 30 days of development.
+
+```bash
+gitallica long-lived-branches --path src/ --show-merged
+```
+Analyzes branches affecting the `src/` directory, including recently merged branches.
+
+**Research-Based Analysis:**
+- **DORA Principles**: Based on Accelerate research showing elite teams merge frequently and keep branches short-lived
+- **Trunk-Based Development**: Emphasizes small, frequent integrations to reduce deployment risk
+- **Integration Risk Assessment**: Long-lived branches increase merge conflicts and delivery delays
+- **Team Velocity Impact**: Branch age correlation with deployment frequency and team performance
+
+**Risk Classifications:**
+- **Healthy**: Branches ≤2 days old (aligned with elite team practices)
+- **Warning**: Branches 3-7 days old (monitor for integration opportunities)
+- **Risky**: Branches 8-21 days old (significant integration risk)
+- **Critical**: Branches >21 days old (high risk of conflicts and delivery delays)
+
+**Trunk-Based Compliance Levels:**
+- **Excellent**: 80%+ branches are healthy (≤2 days)
+- **Good**: 60-80% branches are healthy
+- **Moderate**: 40-60% branches are healthy
+- **Poor**: 20-40% branches are healthy
+- **Critical**: <20% branches are healthy (high integration risk)
+
+**Insights Provided:**
+- **Branch age distribution** across different risk categories
+- **Trunk-based development compliance** assessment with specific percentage
+- **Oldest branch identification** with author and last commit details
+- **Risky branch details** showing branches requiring immediate attention
+- **Team integration health** based on branch lifecycle patterns
+- **Actionable recommendations** for improving development practices
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Limit analysis to branches affecting a specific directory or path within the repository.
+- `--limit` : Number of risky branches to show in detailed output (default 10).
+- `--show-merged` : Include recently merged branches in analysis.
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
