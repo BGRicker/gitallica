@@ -115,7 +115,9 @@ func isTestFile(filePath string) bool {
 
 // classifyFileType classifies a file as source, test, or other
 func classifyFileType(filePath string) string {
-	if isTestFile(filePath) {
+	// Store result to avoid duplicate computation
+	isTest := isTestFile(filePath)
+	if isTest {
 		return "test"
 	}
 	
@@ -128,7 +130,7 @@ func classifyFileType(filePath string) string {
 	}
 	
 	for _, sourceExt := range sourceExtensions {
-		if ext == sourceExt && !isTestFile(filePath) {
+		if ext == sourceExt {
 			return "source"
 		}
 	}
@@ -139,9 +141,6 @@ func classifyFileType(filePath string) string {
 // calculateTestRatio calculates the test-to-code ratio and determines status
 func calculateTestRatio(testLOC, sourceLOC int) (float64, string) {
 	if sourceLOC == 0 {
-		if testLOC == 0 {
-			return 0.0, "Unknown"
-		}
 		return 0.0, "Unknown"
 	}
 	
