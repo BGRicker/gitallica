@@ -58,9 +58,6 @@ const (
 	
 	// ownershipMinContributorsForAnalysis: Only analyze diffuse ownership when ≥10 contributors
 	ownershipMinContributorsForAnalysis = 10
-	
-	// Test tolerance for floating point comparisons
-	testToleranceOwnership = 0.01
 )
 
 const ownershipBenchmarkContext = "Balanced ownership prevents both bottlenecks and diffuse responsibility (Collective Ownership - Martin Fowler)."
@@ -198,8 +195,6 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 	// Use efficient log options with early path filtering
 	commitIter, err := repo.Log(&git.LogOptions{
 		Since: since,
-		// Skip merge commits to improve performance
-		// PathFilter: func(p string) bool { return matchesPathFilter(p, pathArg) },
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not get commit log: %v", err)

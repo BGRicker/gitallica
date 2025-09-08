@@ -25,6 +25,11 @@ import (
 	"testing"
 )
 
+const (
+	// Test tolerance for floating point comparisons in ownership clarity tests
+	testToleranceOwnership = 0.01
+)
+
 // TestCalculateOwnershipClarity tests ownership clarity calculation logic
 func TestCalculateOwnershipClarity(t *testing.T) {
 	tests := []struct {
