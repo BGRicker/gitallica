@@ -182,8 +182,7 @@ func processCommitForFileChurn(c *object.Commit, pathArg string) (map[string]Fil
 	if parentCount > 1 {
 		for path := range fileStats {
 			stats := fileStats[path]
-			stats.Additions = (stats.Additions + parentCount - 1) / parentCount
-			stats.Deletions = (stats.Deletions + parentCount - 1) / parentCount
+			stats.Additions, stats.Deletions = applyMergeCommitAdjustment(stats.Additions, stats.Deletions, parentCount)
 			fileStats[path] = stats
 		}
 	}

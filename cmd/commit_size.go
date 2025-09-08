@@ -201,9 +201,7 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 	// that appear in multiple parent diffs. Since we're already tracking unique files,
 	// we only need to adjust line counts to estimate actual changes in the merge.
 	if parentCount > 1 {
-		// Divide line counts by parent count to estimate actual changes in the merge
-		additions = (additions + parentCount - 1) / parentCount
-		deletions = (deletions + parentCount - 1) / parentCount
+		additions, deletions = applyMergeCommitAdjustment(additions, deletions, parentCount)
 	}
 	
 	return additions, deletions, filesChanged, err

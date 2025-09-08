@@ -75,3 +75,28 @@ func previewContent(s string) string {
 	}
 	return s
 }
+
+// applyMergeCommitAdjustment applies ceiling division to line counts for merge commits.
+// This function implements a heuristic to estimate the actual impact of a merge commit
+// by dividing accumulated line changes by the number of parents. The ceiling division
+// ensures we don't truncate small values to zero, which would be misleading.
+//
+// Rationale for this approach:
+// 1. Merge commits often contain changes that appear in multiple parent diffs
+// 2. Simple summation would overcount the actual impact of the merge
+// 3. Division by parent count provides a reasonable estimate of the merge's true impact
+// 4. Ceiling division prevents underestimation for small changes
+//
+// This is a pragmatic heuristic rather than a perfect solution, as true merge analysis
+// would require complex conflict resolution analysis that's beyond the scope of this tool.
+func applyMergeCommitAdjustment(additions, deletions, parentCount int) (int, int) {
+	if parentCount <= 1 {
+		return additions, deletions
+	}
+	
+	// Apply ceiling division to both additions and deletions
+	adjustedAdditions := (additions + parentCount - 1) / parentCount
+	adjustedDeletions := (deletions + parentCount - 1) / parentCount
+	
+	return adjustedAdditions, adjustedDeletions
+}
