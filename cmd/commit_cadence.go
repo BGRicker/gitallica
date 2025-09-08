@@ -164,6 +164,29 @@ func analyzeCommitCadence(repo *git.Repository, pathArg string, lastArg string, 
 	return stats, nil
 }
 
+// calculateISOWeekPeriod calculates the start, end, and key for an ISO week period
+func calculateISOWeekPeriod(t time.Time) (start, end time.Time, key string) {
+	utcTime := t.UTC()
+	year, week := utcTime.ISOWeek()
+	
+	// Calculate the Monday of this ISO week
+	jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	jan1Weekday := jan1.Weekday()
+	if jan1Weekday == time.Sunday {
+		jan1Weekday = 7 // Adjust Sunday to be day 7 instead of 0
+	}
+	daysToFirstMonday := 1 - int(jan1Weekday)
+	if daysToFirstMonday > 0 {
+		daysToFirstMonday -= 7
+	}
+	
+	start = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
+	end = start.Add(7*24*time.Hour - time.Nanosecond)
+	key = start.Format("2006-W02")
+	
+	return start, end, key
+}
+
 // groupCommitsByTimePeriod groups commits into time-based buckets with zero-fill for missing periods
 func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod {
 	if len(commits) == 0 {
@@ -191,44 +214,16 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 			periodEnd = periodStart.Add(24*time.Hour - time.Nanosecond)
 			periodKey = periodStart.Format("2006-01-02")
 		case "week":
-			// Normalize to UTC and use ISO week calculation for consistent results
-			utcTime := commit.Time.UTC()
-			year, week := utcTime.ISOWeek()
-			// Get the Monday of this ISO week
-			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
-			jan1Weekday := jan1.Weekday()
-			if jan1Weekday == time.Sunday {
-				jan1Weekday = 7 // Sunday = 7 in ISO
-			}
-			daysToFirstMonday := 1 - int(jan1Weekday)
-			if daysToFirstMonday > 0 {
-				daysToFirstMonday -= 7
-			}
-			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
-			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
-			periodKey = periodStart.Format("2006-W02") // ISO week format
+			// Use helper function for ISO week calculation
+			periodStart, periodEnd, periodKey = calculateISOWeekPeriod(commit.Time)
 		case "month":
 			year, month, _ := commit.Time.Date()
 			periodStart = time.Date(year, month, 1, 0, 0, 0, 0, commit.Time.Location())
 			periodEnd = periodStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
 			periodKey = periodStart.Format("2006-01")
 		default:
-			// Default to week - use same ISO week logic as above
-			utcTime := commit.Time.UTC()
-			year, week := utcTime.ISOWeek()
-			// Get the Monday of this ISO week
-			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
-			jan1Weekday := jan1.Weekday()
-			if jan1Weekday == time.Sunday {
-				jan1Weekday = 7 // Sunday = 7 in ISO
-			}
-			daysToFirstMonday := 1 - int(jan1Weekday)
-			if daysToFirstMonday > 0 {
-				daysToFirstMonday -= 7
-			}
-			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
-			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
-			periodKey = periodStart.Format("2006-W02") // ISO week format
+			// Default to week - use helper function for ISO week calculation  
+			periodStart, periodEnd, periodKey = calculateISOWeekPeriod(commit.Time)
 		}
 		
 		periodMap[periodKey]++
@@ -263,20 +258,7 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 			periodEnd = periodStart.Add(24*time.Hour - time.Nanosecond)
 			periodKey = periodStart.Format("2006-01-02")
 		case "week":
-			utcTime := current.UTC()
-			year, week := utcTime.ISOWeek()
-			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
-			jan1Weekday := jan1.Weekday()
-			if jan1Weekday == time.Sunday {
-				jan1Weekday = 7
-			}
-			daysToFirstMonday := 1 - int(jan1Weekday)
-			if daysToFirstMonday > 0 {
-				daysToFirstMonday -= 7
-			}
-			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
-			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
-			periodKey = periodStart.Format("2006-W02")
+			periodStart, periodEnd, periodKey = calculateISOWeekPeriod(current)
 		case "month":
 			year, month, _ := current.Date()
 			periodStart = time.Date(year, month, 1, 0, 0, 0, 0, current.Location())
@@ -284,20 +266,7 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 			periodKey = periodStart.Format("2006-01")
 		default:
 			// Default to week
-			utcTime := current.UTC()
-			year, week := utcTime.ISOWeek()
-			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
-			jan1Weekday := jan1.Weekday()
-			if jan1Weekday == time.Sunday {
-				jan1Weekday = 7
-			}
-			daysToFirstMonday := 1 - int(jan1Weekday)
-			if daysToFirstMonday > 0 {
-				daysToFirstMonday -= 7
-			}
-			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
-			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
-			periodKey = periodStart.Format("2006-W02")
+			periodStart, periodEnd, periodKey = calculateISOWeekPeriod(current)
 		}
 		
 		// Get commit count for this period (zero if no commits)
@@ -577,13 +546,10 @@ func commitAffectsPath(commit *object.Commit, pathArg string) (bool, error) {
 		err = tree.Files().ForEach(func(file *object.File) error {
 			if matchesPathFilter(file.Name, pathArg) {
 				found = true
-				return fmt.Errorf("found") // Early exit optimization
+				// Note: could use early exit here, but for simplicity we let the loop complete
 			}
 			return nil
 		})
-		if err != nil && err.Error() == "found" {
-			return true, nil
-		}
 		return found, err
 	}
 	
