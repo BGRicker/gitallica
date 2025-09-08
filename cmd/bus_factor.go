@@ -164,7 +164,7 @@ func classifyBusFactorRisk(busFactor, totalContributors int) string {
 	case busFactor >= healthyMinimum:
 		return "Healthy"
 	default:
-		return "Low"
+		return "Unknown"
 	}
 }
 
@@ -241,9 +241,8 @@ func sortDirectoriesByBusFactorRisk(dirs []DirectoryBusFactorStats) []DirectoryB
 		"Critical": 1,
 		"High":     2,
 		"Medium":   3,
-		"Low":      4,
-		"Healthy":  5,
-		"Unknown":  6,
+		"Healthy":  4,
+		"Unknown":  5,
 	}
 	
 	sort.Slice(sorted, func(i, j int) bool {
