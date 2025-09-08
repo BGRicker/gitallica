@@ -197,6 +197,10 @@ gitallica dead-zones --last 6m --path src/
 ```
 Shows dead zones in the `src/` directory, looking at the last 6 months of activity.
 
+**Note**: Dead-zone age is based on time since last modification.
+The `--last` window controls the activity period scanned to determine staleness,
+which may surface files untouched for >6 months (e.g., 12+ months).
+
 **Risk Classification:**
 - **Low Risk**: 12-17 months untouched (consider reviewing)
 - **Medium Risk**: 18-23 months untouched (needs attention)  
