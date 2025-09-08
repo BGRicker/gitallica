@@ -403,6 +403,50 @@ Analyzes high-risk commits in the `src/` directory over the last 30 days.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze commit cadence trends:
+
+```bash
+gitallica commit-cadence
+```
+Analyzes commit frequency patterns over time using weekly grouping to identify trends and sustainability.
+
+```bash
+gitallica commit-cadence --period day --last 30d
+```
+Shows daily commit patterns for the last 30 days to identify recent pace changes.
+
+```bash
+gitallica commit-cadence --period month --path src/
+```
+Analyzes monthly commit trends for the `src/` directory to understand long-term patterns.
+
+**Research-Based Analysis:**
+- **Sustainable Pace Principles**: Based on Kent Beck's Extreme Programming principles about sustainable development
+- **Trend Detection**: Uses linear regression to identify increasing, decreasing, or stable commit patterns
+- **Spike/Dip Identification**: Detects periods of unusually high or low activity that may indicate crunch or stagnation
+- **Team Health Assessment**: Evaluates overall sustainability based on pace volatility and trends
+
+**Sustainability Classifications:**
+- **Healthy**: Sustainable pace with minimal volatility (5-25 commits/period, stable trends)
+- **Caution**: Some concerning patterns detected (decreasing trends, occasional dips)
+- **Warning**: Multiple spikes indicating potential crunch periods
+- **Critical**: High volatility with frequent spikes and dips indicating unsustainable practices
+
+**Insights Provided:**
+- **Overall trend direction** with statistical strength measurement
+- **Commit spikes** that may indicate crunch periods or deadline pressure
+- **Commit dips** that could signal blockers, burnout, or reduced team capacity
+- **Sustainability assessment** based on pace and volatility patterns
+- **Recent period analysis** showing latest development patterns
+- **Actionable recommendations** for improving team pace and sustainability
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--period` : Time period for grouping commits (day, week, month) - default is "week".
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  

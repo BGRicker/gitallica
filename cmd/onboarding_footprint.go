@@ -366,6 +366,7 @@ type CommitInfo struct {
 	Time    time.Time
 	Files   []string
 	Message string
+	Author  string // Optional: author email for analysis
 }
 
 // printOnboardingFootprintStats prints the onboarding footprint analysis results
