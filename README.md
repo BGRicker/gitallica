@@ -219,7 +219,7 @@ Here are some examples of how to use the **gitallica** CLI to analyze bus factor
 ```bash
 gitallica bus-factor
 ```
-Analyzes bus factor (knowledge concentration) across all repository directories.
+Analyzes bus factor (knowledge concentration) across all repository directories using Git blame data for accurate line-level authorship analysis.
 
 ```bash
 gitallica bus-factor --limit 5
@@ -230,6 +230,11 @@ Shows top 5 directories with highest bus factor risk.
 gitallica bus-factor --last 6m --path src/
 ```
 Shows bus factor analysis for the `src/` directory over the last 6 months.
+
+**Intelligent Analysis:**
+- **Line-Level Ownership**: Uses Git blame data to measure actual code authorship, not just commit frequency
+- **Accurate Knowledge Measurement**: Avoids misleading metrics from drive-by commits, bulk refactors, and merge artifacts
+- **Research-Backed Thresholds**: Based on Martin Fowler's collective ownership principles
 
 **Risk Classification:**
 - **Critical**: Bus factor 1 (single point of failure)
@@ -331,15 +336,17 @@ Untouched code becomes a liability; better to refactor, revive, or delete.
 ---
 
 ### 7. **Bus Factor (per directory)**  
-*Who’s the last person standing if someone leaves?*  
+*Who's the last person standing if someone leaves?*
 
 **Threshold:** Target bus factor of ~25–50% of team (e.g., 4–5 in a 10-person team).  
 
 **Why:**  
 Collective ownership is healthier than strong ownership:  
-> “With collective ownership, anyone can change any part of the code at any time.” — *Martin Fowler*  
+> "With collective ownership, anyone can change any part of the code at any time." — *Martin Fowler*  
 
-But diffuse ownership without clear stewardship risks accountability gaps.  
+But diffuse ownership without clear stewardship risks accountability gaps.
+
+**Intelligent Analysis:** Uses Git blame data to measure actual line-level authorship rather than commit counts, providing accurate knowledge concentration metrics that avoid misleading signals from drive-by commits, bulk refactors, and merge artifacts.
 
 ---
 
