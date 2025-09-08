@@ -1,5 +1,7 @@
 # Gitallica
 
+![Gitallica](lars.png)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org/)
 [![Build Status](https://img.shields.io/badge/Build-Passing-green.svg)](https://github.com/bgricker/gitallica)
