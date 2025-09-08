@@ -214,6 +214,36 @@ which may surface files untouched for >6 months (e.g., 12+ months).
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze bus factor:
+
+```bash
+gitallica bus-factor
+```
+Analyzes bus factor (knowledge concentration) across all repository directories.
+
+```bash
+gitallica bus-factor --limit 5
+```
+Shows top 5 directories with highest bus factor risk.
+
+```bash
+gitallica bus-factor --last 6m --path src/
+```
+Shows bus factor analysis for the `src/` directory over the last 6 months.
+
+**Risk Classification:**
+- **Critical**: Bus factor 1 (single point of failure)
+- **High**: Bus factor 2-3 in larger teams (knowledge concentration)
+- **Medium**: Bus factor adequate but could be improved
+- **Healthy**: Good knowledge distribution (25-50% of team)
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--limit` : Number of top results to show (default 10).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
