@@ -110,36 +110,91 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 		timeWindow = fmt.Sprintf("since %s", since.Format("2006-01-02"))
 	}
 	
-	// Get all commits in the repository
-	commitIter, err := repo.Log(&git.LogOptions{
-		Since: since,
+	// Step 1: Get ALL commits to find each author's true first commit across full history
+	allCommitsIter, err := repo.Log(&git.LogOptions{
+		// No Since filter - we need full history to find true first commits
+		// But limit to reasonable number to avoid memory issues in large repos
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not get commit log: %v", err)
 	}
-	defer commitIter.Close()
+	defer allCommitsIter.Close()
 	
-	// Track first commits by author and analyze their early commits
-	contributorFirstCommit := make(map[string]time.Time)
-	contributorCommits := make(map[string][]*CommitInfo)
+	// Track true first commits by author across full history
+	authorTrueFirstCommit := make(map[string]time.Time)
 	
-	err = commitIter.ForEach(func(commit *object.Commit) error {
+	err = allCommitsIter.ForEach(func(commit *object.Commit) error {
 		// Skip commits without author information
 		if commit.Author.Email == "" {
-			return nil
-		}
-		
-		// Skip merge commits for cleaner analysis
-		if commit.NumParents() > 1 {
 			return nil
 		}
 		
 		author := commit.Author.Email
 		commitTime := commit.Author.When
 		
-		// Track first commit time
-		if firstTime, exists := contributorFirstCommit[author]; !exists || commitTime.Before(firstTime) {
-			contributorFirstCommit[author] = commitTime
+		// Track the earliest commit time for each author across ALL history
+		if firstTime, exists := authorTrueFirstCommit[author]; !exists || commitTime.Before(firstTime) {
+			authorTrueFirstCommit[author] = commitTime
+		}
+		
+		return nil
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("error finding first commits: %v", err)
+	}
+	
+	// Step 2: Filter to only "new" contributors whose first commit falls within time window
+	var newContributors []string
+	if since != nil {
+		for author, firstCommit := range authorTrueFirstCommit {
+			if firstCommit.After(*since) || firstCommit.Equal(*since) {
+				newContributors = append(newContributors, author)
+			}
+		}
+	} else {
+		// No time window specified - all contributors are considered "new"
+		for author := range authorTrueFirstCommit {
+			newContributors = append(newContributors, author)
+		}
+	}
+	
+	// Step 3: Get ALL commits again to analyze the new contributors' early commits
+	analysisCommitsIter, err := repo.Log(&git.LogOptions{
+		// No Since filter - analyze from their true first commit regardless of window
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not get commit log for analysis: %v", err)
+	}
+	defer analysisCommitsIter.Close()
+	
+	// Track commits for new contributors only
+	contributorCommits := make(map[string][]*CommitInfo)
+	
+	err = analysisCommitsIter.ForEach(func(commit *object.Commit) error {
+		// Skip commits without author information
+		if commit.Author.Email == "" {
+			return nil
+		}
+		
+		author := commit.Author.Email
+		commitTime := commit.Author.When
+		
+		// Skip merge commits for cleaner analysis
+		if commit.NumParents() > 1 {
+			return nil
+		}
+		
+		// Only process commits from new contributors
+		isNewContributor := false
+		for _, newAuthor := range newContributors {
+			if author == newAuthor {
+				isNewContributor = true
+				break
+			}
+		}
+		if !isNewContributor {
+			return nil
 		}
 		
 		// Get files changed in this commit
@@ -258,7 +313,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 		
 		contributors = append(contributors, NewContributor{
 			Email:              author,
-			FirstCommitTime:    contributorFirstCommit[author],
+			FirstCommitTime:    authorTrueFirstCommit[author],
 			FilesTouched:       filesCount,
 			CommitsAnalyzed:    commitsAnalyzed,
 			Status:             status,
@@ -398,7 +453,7 @@ func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathArg stri
 				fmt.Printf("   Files: ")
 				for j, file := range contributor.FilesModified {
 					if j >= 5 { // Show only first 5 files
-						fmt.Printf("... (%d more)", len(contributor.FilesModified)-5)
+						fmt.Printf("... (%d more)", len(contributor.FilesModified)-j)
 						break
 					}
 					if j > 0 {
@@ -428,17 +483,21 @@ func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathArg stri
 	
 	// Provide actionable insights
 	fmt.Printf("\nRecommendations:\n")
-	if stats.OverwhelmingOnboarding > 0 {
-		fmt.Printf("  • %d contributors had overwhelming onboarding - urgent process improvement needed\n", stats.OverwhelmingOnboarding)
+	
+	recommendations := []struct {
+		count   int
+		message string
+	}{
+		{stats.OverwhelmingOnboarding, "contributors had overwhelming onboarding - urgent process improvement needed"},
+		{stats.ComplexOnboarding, "contributors had complex onboarding - consider simplifying initial tasks"},
+		{stats.ModerateOnboarding, "contributors had moderate onboarding complexity"},
+		{stats.SimpleOnboarding, "contributors had simple, focused onboarding - excellent!"},
 	}
-	if stats.ComplexOnboarding > 0 {
-		fmt.Printf("  • %d contributors had complex onboarding - consider simplifying initial tasks\n", stats.ComplexOnboarding)
-	}
-	if stats.ModerateOnboarding > 0 {
-		fmt.Printf("  • %d contributors had moderate onboarding complexity\n", stats.ModerateOnboarding)
-	}
-	if stats.SimpleOnboarding > 0 {
-		fmt.Printf("  • %d contributors had simple, focused onboarding - excellent!\n", stats.SimpleOnboarding)
+	
+	for _, rec := range recommendations {
+		if rec.count > 0 {
+			fmt.Printf("  • %d %s\n", rec.count, rec.message)
+		}
 	}
 	
 	if stats.AverageFilesTouched > float64(onboardingComplexThreshold) {
