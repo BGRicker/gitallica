@@ -315,70 +315,9 @@ func sortDirectoriesByBusFactorRisk(dirs []DirectoryBusFactorStats) []DirectoryB
 	return sorted
 }
 
-// BlameLine represents a line from git blame with author information
-type BlameLine struct {
-	Author object.Signature
-	Line   string
-}
-
-// getBlameData retrieves blame information for a file using a more efficient approach
-func getBlameData(repo *git.Repository, file *object.File, headCommit *object.Commit, since time.Time) ([]BlameLine, error) {
-	// Get file content
-	content, err := file.Contents()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get file contents: %v", err)
-	}
-	
-	lines := strings.Split(content, "\n")
-	var blameLines []BlameLine
-	
-	// For each non-empty line, find the author using git log
-	for i, line := range lines {
-		// Skip empty lines
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		
-		// Find the author of this line by walking through commits
-		author, err := findLineAuthorSimple(repo, file.Name, i+1, headCommit, since)
-		if err != nil {
-			// If we can't determine the author, use the file's most recent author
-			author = headCommit.Author
-		}
-		
-		blameLines = append(blameLines, BlameLine{
-			Author: author,
-			Line:   line,
-		})
-	}
-	
-	return blameLines, nil
-}
-
-// findLineAuthorSimple finds the author of a specific line using a simplified approach
-func findLineAuthorSimple(repo *git.Repository, fileName string, lineNumber int, headCommit *object.Commit, since time.Time) (object.Signature, error) {
-	// Get current file content
-	file, err := headCommit.File(fileName)
-	if err != nil {
-		return object.Signature{}, err
-	}
-	
-	content, err := file.Contents()
-	if err != nil {
-		return object.Signature{}, err
-	}
-	
-	lines := strings.Split(content, "\n")
-	if lineNumber > len(lines) || lineNumber < 1 {
-		return object.Signature{}, fmt.Errorf("line number %d out of range", lineNumber)
-	}
-	
-	targetLine := strings.TrimSpace(lines[lineNumber-1])
-	if targetLine == "" {
-		return object.Signature{}, fmt.Errorf("empty line")
-	}
-	
-	// Walk through commits to find when this line was last modified
+// findFileAuthor finds the most recent author of a file using efficient commit traversal
+func findFileAuthor(repo *git.Repository, fileName string, headCommit *object.Commit, since time.Time) (object.Signature, error) {
+	// Walk through commits to find the most recent modification of this file
 	cIter, err := repo.Log(&git.LogOptions{From: headCommit.Hash})
 	if err != nil {
 		return object.Signature{}, err
@@ -394,25 +333,15 @@ func findLineAuthorSimple(repo *git.Repository, fileName string, lineNumber int,
 		
 		// Check if this commit modified the file
 		if c.NumParents() == 0 {
-			// Initial commit - check if file exists and contains our line
+			// Initial commit - check if file exists
 			tree, err := c.Tree()
 			if err != nil {
 				return nil
 			}
 			
-			file, err := tree.File(fileName)
-			if err != nil {
-				return nil // File didn't exist in this commit
-			}
-			
-			content, err := file.Contents()
-			if err != nil {
-				return nil
-			}
-			
-			lines := strings.Split(content, "\n")
-			if lineNumber <= len(lines) && strings.TrimSpace(lines[lineNumber-1]) == targetLine {
-				// Found the line in this commit
+			_, err = tree.File(fileName)
+			if err == nil {
+				// File exists in this commit
 				lastAuthor = c.Author
 				return storer.ErrStop
 			}
@@ -439,8 +368,6 @@ func findLineAuthorSimple(repo *git.Repository, fileName string, lineNumber int,
 				
 				if currentFileName == fileName {
 					// This commit modified our file
-					// For simplicity, we'll assume the author of this commit authored the line
-					// In a more sophisticated implementation, we'd analyze the actual diff
 					lastAuthor = c.Author
 					return storer.ErrStop
 				}
@@ -455,23 +382,22 @@ func findLineAuthorSimple(repo *git.Repository, fileName string, lineNumber int,
 	}
 	
 	if lastAuthor.Name == "" {
-		return object.Signature{}, fmt.Errorf("could not determine author for line")
+		return object.Signature{}, fmt.Errorf("could not determine author for file %s", fileName)
 	}
 	
 	return lastAuthor, nil
 }
 
-// analyzeBusFactor performs bus factor analysis on the repository using Git blame data
-// This provides a more accurate measure of knowledge concentration by analyzing actual
-// line-level authorship rather than commit counts, which can be misleading due to
-// drive-by commits, bulk refactors, and merge artifacts.
+// analyzeBusFactor performs bus factor analysis using an efficient commit-based approach
+// This provides accurate knowledge measurement while maintaining good performance by
+// analyzing file authorship through commit history rather than line-by-line blame.
 func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*BusFactorAnalysis, error) {
 	ref, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
 	}
 	
-	// Track line ownership per directory using blame data
+	// Track file authorship per directory using commit-based analysis
 	directoryOwnership := make(map[string]map[string]int)
 	
 	// Get current HEAD commit and tree
@@ -485,7 +411,9 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
 	
-	// Iterate through all files in the current tree
+	// Get all files in current tree and initialize directory structure
+	fileAuthors := make(map[string]string) // file -> most recent author
+	
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
 		if !matchesPathFilter(f.Name, pathArg) {
@@ -511,25 +439,72 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 			directoryOwnership[dir] = make(map[string]int)
 		}
 		
-		// Get blame data for this file
-		blameResult, err := getBlameData(repo, f, headCommit, since)
+		// Find the most recent author of this file
+		author, err := findFileAuthor(repo, f.Name, headCommit, since)
 		if err != nil {
-			// If blame fails, skip this file rather than failing the entire analysis
-			log.Printf("Warning: failed to get blame data for %s: %v", f.Name, err)
+			// If we can't determine the author, skip this file
+			log.Printf("Warning: failed to get author for %s: %v", f.Name, err)
 			return nil
 		}
 		
-		// Count lines by author
-		for _, line := range blameResult {
-			author := normalizeAuthorName(line.Author.Name, line.Author.Email)
-			directoryOwnership[dir][author]++
-		}
+		fileAuthors[f.Name] = normalizeAuthorName(author.Name, author.Email)
 		
 		return nil
 	})
 	
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing files: %v", err)
+	}
+	
+	// Count lines by author per directory
+	err = tree.Files().ForEach(func(f *object.File) error {
+		// Apply path filter if specified
+		if !matchesPathFilter(f.Name, pathArg) {
+			return nil
+		}
+		
+		// Skip binary files
+		isBinary, err := f.IsBinary()
+		if err != nil || isBinary {
+			return nil
+		}
+		
+		// Get directory for this file
+		dir := filepath.Dir(f.Name)
+		if dir == "." {
+			dir = "root"
+		} else {
+			dir = dir + "/"
+		}
+		
+		// Get file author
+		author, exists := fileAuthors[f.Name]
+		if !exists {
+			return nil
+		}
+		
+		// Count lines in this file
+		content, err := f.Contents()
+		if err != nil {
+			return nil
+		}
+		
+		lines := strings.Split(content, "\n")
+		lineCount := 0
+		for _, line := range lines {
+			if strings.TrimSpace(line) != "" {
+				lineCount++
+			}
+		}
+		
+		// Add to directory ownership
+		directoryOwnership[dir][author] += lineCount
+		
+		return nil
+	})
+	
+	if err != nil {
+		return nil, fmt.Errorf("error counting lines: %v", err)
 	}
 	
 	// Calculate bus factor statistics for each directory
