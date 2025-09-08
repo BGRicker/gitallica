@@ -296,12 +296,20 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 		}
 	}
 	
-	// Calculate file popularity
+	// Calculate file popularity - use only contributors who actually touched files in scope
 	var commonFiles []FilePopularity
-	totalContributors := len(contributors)
+	contributorsWithFiles := 0
+	for _, contributor := range contributors {
+		if contributor.FilesTouched > 0 {
+			contributorsWithFiles++
+		}
+	}
 	
 	for file, count := range filePopularity {
-		percentage := float64(count) / float64(totalContributors) * 100
+		var percentage float64
+		if contributorsWithFiles > 0 {
+			percentage = float64(count) / float64(contributorsWithFiles) * 100
+		}
 		commonFiles = append(commonFiles, FilePopularity{
 			FilePath:   file,
 			TouchCount: count,
@@ -315,8 +323,8 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 	})
 	
 	return &OnboardingFootprintStats{
-		TotalContributors:      len(contributors),
-		AnalyzedContributors:   len(contributors),
+		TotalContributors:      len(contributorCommits), // All contributors who made commits
+		AnalyzedContributors:   len(contributors),       // Contributors with sufficient data for analysis
 		AverageFilesTouched:    averageFilesTouched,
 		SimpleOnboarding:       simpleCount,
 		ModerateOnboarding:     moderateCount,
@@ -337,14 +345,15 @@ type CommitInfo struct {
 }
 
 // printOnboardingFootprintStats prints the onboarding footprint analysis results
-func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathArg string, limit int) {
+func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathArg string, limit int, commitLimit int) {
 	fmt.Printf("Onboarding Footprint Analysis\n")
 	if pathArg != "" {
 		fmt.Printf("Path filter: %s\n", pathArg)
 	}
 	fmt.Printf("Time window: %s\n", stats.TimeWindow)
+	fmt.Printf("Contributors found: %d\n", stats.TotalContributors)
 	fmt.Printf("Contributors analyzed: %d\n", stats.AnalyzedContributors)
-	fmt.Printf("Average files touched in first %d commits: %.1f\n", onboardingDefaultCommitLimit, stats.AverageFilesTouched)
+	fmt.Printf("Average files touched in first %d commits: %.1f\n", commitLimit, stats.AverageFilesTouched)
 	fmt.Println()
 	
 	// Summary by complexity
@@ -481,7 +490,7 @@ easy to read makes it easier to write." — Robert C. Martin, Clean Code`,
 			log.Fatalf("Error analyzing onboarding footprint: %v", err)
 		}
 
-		printOnboardingFootprintStats(stats, pathArg, limit)
+		printOnboardingFootprintStats(stats, pathArg, limit, commitLimit)
 	},
 }
 
