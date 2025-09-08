@@ -152,6 +152,34 @@ Shows top 5 Ruby component types by creation count.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze directory entropy:
+
+```bash
+gitallica directory-entropy
+```
+Analyzes entropy across repository directories to identify areas with weak modularity. Automatically detects project type (Go, Node.js, Python, Ruby, etc.) for context-aware analysis.
+
+```bash
+gitallica directory-entropy --limit 5
+```
+Shows top 5 high and low entropy directories.
+
+```bash
+gitallica directory-entropy --last 30d
+```
+Shows directory entropy analysis for the last 30 days.
+
+**Context-Aware Analysis:**
+- **Project Type Detection**: Automatically identifies Go CLI, Node.js, Python, Ruby/Rails, and generic projects
+- **Root Directory Rules**: Different entropy thresholds for root vs. subdirectories
+- **Framework-Specific Patterns**: Understands expected file types for each project structure
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--limit` : Number of top results to show (default 10).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
@@ -217,12 +245,12 @@ A spike in new models or services can indicate architectural sprawl.
 ### 5. **Directory Entropy**  
 *When clean albums turn into messy mixtapes.*  
 
-**Threshold:** Compare entropy across directories; flag outliers relative to team norms.  
+**Threshold:** Context-aware analysis with different rules for root vs. subdirectories.  
 
 **Why:**  
-> “Simplicity is prerequisite for reliability.” — *Edsger W. Dijkstra*  
+> "Simplicity is prerequisite for reliability." — *Edsger W. Dijkstra*  
 
-High entropy signals weak modularity and eroded boundaries.  
+High entropy signals weak modularity and eroded boundaries. **gitallica** automatically detects project type (Go, Node.js, Python, Ruby, etc.) and applies appropriate entropy thresholds based on expected directory structures and file type patterns.  
 
 ---
 
