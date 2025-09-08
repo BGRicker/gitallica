@@ -246,41 +246,174 @@ func TestBusFactorThresholds(t *testing.T) {
 func TestAuthorNameNormalization(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string
+		nameInput    string
+		emailInput   string
 		expected string
 	}{
 		{
-			name:     "email address",
-			input:    "alice@example.com",
-			expected: "alice@example.com",
+			name:     "valid email and name",
+			nameInput:    "Alice Smith",
+			emailInput:   "alice@company.com",
+			expected: "alice@company.com",
 		},
 		{
-			name:     "name with email",
-			input:    "Alice Smith <alice@example.com>",
-			expected: "alice@example.com",
+			name:     "generic email with name",
+			nameInput:    "Alice Smith",
+			emailInput:   "user@localhost",
+			expected: "alice smith",
 		},
 		{
-			name:     "name only",
-			input:    "Alice Smith",
+			name:     "example.com email with name",
+			nameInput:    "Alice Smith",
+			emailInput:   "alice@example.com",
+			expected: "alice smith",
+		},
+		{
+			name:     "noreply email with name",
+			nameInput:    "Alice Smith",
+			emailInput:   "noreply@company.com",
+			expected: "alice smith",
+		},
+		{
+			name:     "valid email no name",
+			nameInput:    "",
+			emailInput:   "alice@company.com",
+			expected: "alice@company.com",
+		},
+		{
+			name:     "name only no email",
+			nameInput:    "Alice Smith",
+			emailInput:   "",
 			expected: "alice smith",
 		},
 		{
 			name:     "mixed case email",
-			input:    "Alice.Smith@EXAMPLE.COM",
-			expected: "alice.smith@example.com",
+			nameInput:    "Alice Smith",
+			emailInput:   "Alice.Smith@COMPANY.COM",
+			expected: "alice.smith@company.com",
 		},
 		{
-			name:     "empty string",
-			input:    "",
+			name:     "empty inputs",
+			nameInput:    "",
+			emailInput:   "",
 			expected: "unknown",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeAuthorName(tt.input)
+			result := normalizeAuthorName(tt.nameInput, tt.emailInput)
 			if result != tt.expected {
-				t.Errorf("normalizeAuthorName(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("normalizeAuthorName(%q, %q) = %q, want %q", tt.nameInput, tt.emailInput, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsGenericEmail(t *testing.T) {
+	tests := []struct {
+		name     string
+		email    string
+		expected bool
+	}{
+		{
+			name:     "localhost email",
+			email:    "user@localhost",
+			expected: true,
+		},
+		{
+			name:     "example.com email",
+			email:    "test@example.com",
+			expected: true,
+		},
+		{
+			name:     "noreply email",
+			email:    "noreply@company.com",
+			expected: true,
+		},
+		{
+			name:     "valid company email",
+			email:    "alice@company.com",
+			expected: false,
+		},
+		{
+			name:     "gmail email",
+			email:    "alice@gmail.com",
+			expected: false,
+		},
+		{
+			name:     "empty email",
+			email:    "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isGenericEmail(tt.email)
+			if result != tt.expected {
+				t.Errorf("isGenericEmail(%q) = %v, want %v", tt.email, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMatchesPathFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		filePath string
+		filter   string
+		expected bool
+	}{
+		{
+			name:     "empty filter matches all",
+			filePath: "src/main.go",
+			filter:   "",
+			expected: true,
+		},
+		{
+			name:     "exact directory match",
+			filePath: "src/main.go",
+			filter:   "src",
+			expected: true,
+		},
+		{
+			name:     "subdirectory match",
+			filePath: "src/utils/helper.go",
+			filter:   "src",
+			expected: true,
+		},
+		{
+			name:     "no match",
+			filePath: "tests/test.go",
+			filter:   "src",
+			expected: false,
+		},
+		{
+			name:     "partial name no match",
+			filePath: "testing/test.go",
+			filter:   "test",
+			expected: false,
+		},
+		{
+			name:     "exact file match",
+			filePath: "main.go",
+			filter:   "main.go",
+			expected: true,
+		},
+		{
+			name:     "Windows-style paths",
+			filePath: "src\\main.go",
+			filter:   "src",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchesPathFilter(tt.filePath, tt.filter)
+			if result != tt.expected {
+				t.Errorf("matchesPathFilter(%q, %q) = %v, want %v", tt.filePath, tt.filter, result, tt.expected)
 			}
 		})
 	}

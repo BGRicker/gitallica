@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -73,24 +72,80 @@ type BusFactorAnalysis struct {
 }
 
 // normalizeAuthorName normalizes author names to handle different formats
-func normalizeAuthorName(author string) string {
-	if author == "" {
-		return "unknown"
+func normalizeAuthorName(name, email string) string {
+	// Clean and normalize inputs
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+	cleanName := strings.TrimSpace(name)
+	
+	// Check if email looks generic or invalid
+	if isGenericEmail(cleanEmail) && cleanName != "" {
+		// Prefer name when email is generic
+		return strings.ToLower(cleanName)
 	}
 	
-	// Extract email from "Name <email>" format
-	emailRegex := regexp.MustCompile(`<([^>]+)>`)
-	if matches := emailRegex.FindStringSubmatch(author); len(matches) > 1 {
-		return strings.ToLower(strings.TrimSpace(matches[1]))
+	// Use email if it looks valid
+	if cleanEmail != "" && strings.Contains(cleanEmail, "@") {
+		return cleanEmail
 	}
 	
-	// If it looks like an email, normalize it
-	if strings.Contains(author, "@") {
-		return strings.ToLower(strings.TrimSpace(author))
+	// Fallback to name if available
+	if cleanName != "" {
+		return strings.ToLower(cleanName)
 	}
 	
-	// Otherwise, normalize as name
-	return strings.ToLower(strings.TrimSpace(author))
+	return "unknown"
+}
+
+// isGenericEmail checks if an email looks generic or auto-generated
+func isGenericEmail(email string) bool {
+	// Check for domain-based generic patterns
+	genericDomains := []string{
+		"@localhost",
+		"@example.com",
+		"@example.org", 
+		"@test.com",
+	}
+	
+	for _, domain := range genericDomains {
+		if strings.Contains(email, domain) {
+			return true
+		}
+	}
+	
+	// Check for username-based patterns
+	if strings.HasPrefix(email, "noreply@") ||
+	   strings.HasPrefix(email, "no-reply@") ||
+	   strings.HasPrefix(email, "user@") ||
+	   strings.HasPrefix(email, "admin@") ||
+	   strings.HasPrefix(email, "root@") {
+		return true
+	}
+	
+	return false
+}
+
+// matchesPathFilter checks if a file path matches the given filter using proper path handling
+func matchesPathFilter(filePath, pathFilter string) bool {
+	if pathFilter == "" {
+		return true
+	}
+	
+	// Normalize paths for cross-platform compatibility
+	// Convert backslashes to forward slashes first for Windows compatibility
+	cleanFilePath := strings.ReplaceAll(filePath, "\\", "/")
+	cleanPathFilter := strings.ReplaceAll(pathFilter, "\\", "/")
+	
+	// Clean the paths
+	cleanFilePath = filepath.ToSlash(filepath.Clean(cleanFilePath))
+	cleanPathFilter = filepath.ToSlash(filepath.Clean(cleanPathFilter))
+	
+	// Exact match
+	if cleanFilePath == cleanPathFilter {
+		return true
+	}
+	
+	// Check if file is under the specified directory (with proper directory boundary)
+	return strings.HasPrefix(cleanFilePath, cleanPathFilter+"/")
 }
 
 // calculateBusFactor calculates the bus factor for a directory based on author contributions
@@ -283,10 +338,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		}
 		
 		// Normalize author name
-		author := normalizeAuthorName(c.Author.Email)
-		if author == "" {
-			author = normalizeAuthorName(c.Author.Name)
-		}
+		author := normalizeAuthorName(c.Author.Name, c.Author.Email)
 		
 		// Handle merge commits by diffing against their first parent
 		var parentTree *object.Tree
@@ -321,7 +373,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 				}
 				
 				// Apply path filter if specified
-				if pathArg != "" && !strings.HasPrefix(change.To.Name, pathArg) {
+				if !matchesPathFilter(change.To.Name, pathArg) {
 					continue
 				}
 				
@@ -345,7 +397,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		} else {
 			// Initial commit - count all files
 			err = tree.Files().ForEach(func(f *object.File) error {
-				if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+				if !matchesPathFilter(f.Name, pathArg) {
 					return nil
 				}
 				
@@ -468,7 +520,7 @@ func printBusFactorStats(analysis *BusFactorAnalysis, limit int) {
 	
 	// Show detailed breakdown for high-risk directories
 	if len(analysis.OverallRiskDirs) > 0 {
-		fmt.Printf("\n⚠️  High-Risk Directories (detailed breakdown):\n")
+		fmt.Printf("\n[!] High-Risk Directories (detailed breakdown):\n")
 		showCount := min(3, len(analysis.OverallRiskDirs))
 		
 		for i := 0; i < showCount; i++ {
