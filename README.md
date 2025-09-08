@@ -214,6 +214,42 @@ which may surface files untouched for >6 months (e.g., 12+ months).
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze bus factor:
+
+```bash
+gitallica bus-factor
+```
+Analyzes bus factor (knowledge concentration) across all repository directories using Git blame data for accurate line-level authorship analysis.
+
+```bash
+gitallica bus-factor --limit 5
+```
+Shows top 5 directories with highest bus factor risk.
+
+```bash
+gitallica bus-factor --last 6m --path src/
+```
+Shows bus factor analysis for the `src/` directory over the last 6 months.
+
+**Intelligent Analysis:**
+- **File-Level Ownership**: Uses efficient commit-based analysis to determine file authorship
+- **Performance Optimized**: Fast analysis suitable for large repositories (O(n×c) complexity)
+- **Accurate Knowledge Measurement**: Avoids misleading metrics from drive-by commits while maintaining speed
+- **Research-Backed Thresholds**: Based on Martin Fowler's collective ownership principles
+
+**Risk Classification:**
+- **Critical**: Bus factor 1 (single point of failure)
+- **High**: Bus factor 2-3 in larger teams (knowledge concentration)
+- **Medium**: Bus factor adequate but could be improved
+- **Healthy**: Good knowledge distribution (25-50% of team)
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--limit` : Number of top results to show (default 10).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
@@ -301,15 +337,17 @@ Untouched code becomes a liability; better to refactor, revive, or delete.
 ---
 
 ### 7. **Bus Factor (per directory)**  
-*Who’s the last person standing if someone leaves?*  
+*Who's the last person standing if someone leaves?*
 
 **Threshold:** Target bus factor of ~25–50% of team (e.g., 4–5 in a 10-person team).  
 
 **Why:**  
 Collective ownership is healthier than strong ownership:  
-> “With collective ownership, anyone can change any part of the code at any time.” — *Martin Fowler*  
+> "With collective ownership, anyone can change any part of the code at any time." — *Martin Fowler*  
 
-But diffuse ownership without clear stewardship risks accountability gaps.  
+But diffuse ownership without clear stewardship risks accountability gaps.
+
+**Intelligent Analysis:** Uses efficient file-level authorship analysis with commit-based traversal, providing accurate knowledge concentration metrics while maintaining excellent performance for large repositories.
 
 ---
 
