@@ -25,6 +25,9 @@ const (
 	moderateComplianceThreshold  = 0.4 // 40%+ healthy branches
 	poorComplianceThreshold      = 0.2 // 20%+ healthy branches
 	// Below 20% is Critical
+	
+	// Performance limits
+	maxCommitCountLimit = 1000 // Limit to avoid excessive counting for very large branches
 )
 
 // BranchInfo represents information about a Git branch
@@ -149,9 +152,9 @@ func getAllBranches(repo *git.Repository, cutoffTime time.Time, pathArg string, 
 			return nil
 		}
 
-		// Skip HEAD and master/main if it's the current branch
+		// Skip HEAD and current branch reference
 		branchName := getBranchDisplayName(ref.Name().String())
-		if branchName == "HEAD" || ref.Hash() == head.Hash() {
+		if branchName == "HEAD" || ref.Name() == head.Name() {
 			return nil
 		}
 
@@ -161,8 +164,12 @@ func getAllBranches(repo *git.Repository, cutoffTime time.Time, pathArg string, 
 			return nil // Skip problematic branches
 		}
 
-		// Calculate branch age
-		branchAge := calculateBranchAge(commit.Author.When, now)
+		// Calculate branch age based on divergence point  
+		branchAge, err := calculateBranchAgeFromDivergence(repo, ref.Hash(), head.Hash(), now)
+		if err != nil {
+			// Fallback to commit timestamp if divergence calculation fails
+			branchAge = calculateBranchAge(commit.Author.When, now)
+		}
 
 		// Skip if outside time window
 		if !cutoffTime.IsZero() && commit.Author.When.Before(cutoffTime) {
@@ -225,6 +232,30 @@ func calculateBranchAge(createdTime, currentTime time.Time) float64 {
 	return duration.Hours() / 24.0
 }
 
+// calculateBranchAgeFromDivergence calculates branch age based on divergence point
+func calculateBranchAgeFromDivergence(repo *git.Repository, branchHash, mainHash plumbing.Hash, currentTime time.Time) (float64, error) {
+	branchCommit, err := repo.CommitObject(branchHash)
+	if err != nil {
+		return 0, err
+	}
+
+	mainCommit, err := repo.CommitObject(mainHash)
+	if err != nil {
+		return 0, err
+	}
+
+	// Find merge base (divergence point)
+	mergeBase, err := branchCommit.MergeBase(mainCommit)
+	if err != nil || len(mergeBase) == 0 {
+		// If no merge base found, use branch commit time
+		return calculateBranchAge(branchCommit.Author.When, currentTime), nil
+	}
+
+	// Calculate age from divergence point
+	divergenceTime := mergeBase[0].Author.When
+	return calculateBranchAge(divergenceTime, currentTime), nil
+}
+
 // classifyBranchRisk classifies a branch based on its age
 func classifyBranchRisk(ageInDays float64) string {
 	if ageInDays <= healthyBranchMaxAge {
@@ -274,12 +305,13 @@ func calculateLongLivedBranchesStats(branches []BranchInfo) *LongLivedBranchesSt
 	var riskyBranches []BranchInfo
 	var oldestBranch *BranchInfo
 
-	for _, branch := range branches {
+	for i, branch := range branches {
 		totalAge += branch.AgeInDays
 
 		// Ensure risk is classified (in case it wasn't set in input data)
 		if branch.Risk == "" {
 			branch.Risk = classifyBranchRisk(branch.AgeInDays)
+			stats.Branches[i].Risk = branch.Risk // Update the original slice
 		}
 
 		// Track oldest branch
@@ -323,9 +355,22 @@ func getBranchDisplayName(refName string) string {
 
 // isBranchMerged checks if a branch has been merged into the main branch
 func isBranchMerged(repo *git.Repository, branchHash, mainHash plumbing.Hash) (bool, error) {
-	// Simple implementation: check if branch commit is reachable from main
-	// This is a simplified version - in practice, this can be complex
-	return branchHash == mainHash, nil
+	// Check if branchHash is reachable from mainHash using commit ancestry
+	mainCommit, err := repo.CommitObject(mainHash)
+	if err != nil {
+		return false, err
+	}
+	
+	// Walk through main branch history to find if branch commit exists
+	commitIter := object.NewCommitPreorderIter(mainCommit, nil, nil)
+	defer commitIter.Close()
+	
+	return commitIter.ForEach(func(commit *object.Commit) error {
+		if commit.Hash == branchHash {
+			return fmt.Errorf("found") // Use error to break iteration
+		}
+		return nil
+	}) != nil, nil
 }
 
 // branchAffectsPath checks if a branch has changes affecting the specified path
@@ -355,21 +400,35 @@ func branchAffectsPath(repo *git.Repository, branchHash, mainHash plumbing.Hash,
 
 // getBranchCommitCount counts commits unique to this branch
 func getBranchCommitCount(repo *git.Repository, branchHash, mainHash plumbing.Hash) (int, error) {
-	// Simplified implementation - count commits reachable from branch
-	// In practice, you'd want to count commits unique to the branch
-	commitIter, err := repo.Log(&git.LogOptions{
-		From: branchHash,
-	})
+	// Get merge base to find divergence point
+	branchCommit, err := repo.CommitObject(branchHash)
 	if err != nil {
 		return 0, err
 	}
+
+	mainCommit, err := repo.CommitObject(mainHash)
+	if err != nil {
+		return 0, err
+	}
+
+	// Find common ancestor (simplified approach)
+	mergeBase, err := branchCommit.MergeBase(mainCommit)
+	if err != nil || len(mergeBase) == 0 {
+		return 0, err
+	}
+
+	// Count commits from branch tip to merge base
+	count := 0
+	commitIter := object.NewCommitPreorderIter(branchCommit, nil, nil)
 	defer commitIter.Close()
 
-	count := 0
 	err = commitIter.ForEach(func(commit *object.Commit) error {
+		if commit.Hash == mergeBase[0].Hash {
+			return fmt.Errorf("reached merge base") // Stop counting
+		}
 		count++
 		// Limit to avoid excessive counting
-		if count > 1000 {
+		if count > maxCommitCountLimit {
 			return fmt.Errorf("branch too large")
 		}
 		return nil
