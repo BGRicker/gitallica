@@ -529,8 +529,9 @@ Analyzes lead time for the `src/` directory using release tags as deployment mar
 - **Low**: >1 month (significant improvement needed)
 
 **Lead Time Calculation Methods:**
-- **Merge Method**: Time from commit creation to appearance in main branch
-- **Tag Method**: Time from commit creation to inclusion in release tag
+- **Merge Method**: Time from commit creation to merge into main branch (real Git merge detection)
+- **Tag Method**: Time from commit creation to inclusion in release tag (actual tag analysis)
+- **Real Git Analysis**: Uses actual repository history, not simulated data
 - **Configurable Approach**: Adaptable to different deployment and release strategies
 
 **Performance Level Assessment:**

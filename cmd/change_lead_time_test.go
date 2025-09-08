@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -29,7 +30,7 @@ func TestChangeLeadTimeAnalysis(t *testing.T) {
 	}
 	expectedAverage := totalHours / float64(len(commits)) // (4+48+240+984+12)/5 = 257.6 hours
 	tolerance := 0.1
-	if abs(stats.AverageLeadTimeHours-expectedAverage) > tolerance {
+	if math.Abs(stats.AverageLeadTimeHours-expectedAverage) > tolerance {
 		t.Errorf("Expected AverageLeadTimeHours ≈ %.1f, got %.1f", expectedAverage, stats.AverageLeadTimeHours)
 	}
 
@@ -203,7 +204,7 @@ func TestCalculateLeadTime(t *testing.T) {
 	leadTime := calculateLeadTime(commitTime, deployTime)
 
 	tolerance := 0.1
-	if abs(leadTime-expectedHours) > tolerance {
+	if math.Abs(leadTime-expectedHours) > tolerance {
 		t.Errorf("Expected leadTime ≈ %.1f hours, got %.1f", expectedHours, leadTime)
 	}
 }
@@ -218,13 +219,13 @@ func TestCalculatePercentiles(t *testing.T) {
 	// For sorted data, 50th percentile should be median (5.5)
 	expectedP50 := 5.5
 	tolerance := 0.1
-	if abs(p50-expectedP50) > tolerance {
+	if math.Abs(p50-expectedP50) > tolerance {
 		t.Errorf("Expected P50 ≈ %.1f, got %.1f", expectedP50, p50)
 	}
 
 	// 95th percentile should be near the high end
 	expectedP95 := 9.5
-	if abs(p95-expectedP95) > tolerance {
+	if math.Abs(p95-expectedP95) > tolerance {
 		t.Errorf("Expected P95 ≈ %.1f, got %.1f", expectedP95, p95)
 	}
 }
@@ -264,7 +265,7 @@ func TestLeadTimeFromCommitToMerge(t *testing.T) {
 	leadTime := calculateLeadTime(commitTime, mergeTime)
 
 	tolerance := 0.1
-	if abs(leadTime-expectedHours) > tolerance {
+	if math.Abs(leadTime-expectedHours) > tolerance {
 		t.Errorf("Expected leadTime ≈ %.1f hours, got %.1f", expectedHours, leadTime)
 	}
 

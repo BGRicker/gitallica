@@ -137,14 +137,14 @@ func analyzeChangeLeadTime(repo *git.Repository, pathArg string, lastArg string,
 func getCommitsWithLeadTime(repo *git.Repository, cutoffTime time.Time, pathArg string, method string) ([]CommitLeadTime, error) {
 	var commits []CommitLeadTime
 
-	// Get main branch reference
-	head, err := repo.Head()
+	// Get the default branch (usually main/master)
+	defaultBranch, err := getDefaultBranch(repo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get HEAD: %v", err)
+		return nil, fmt.Errorf("failed to get default branch: %v", err)
 	}
 
-	// Get commit iterator
-	commitIter, err := repo.Log(&git.LogOptions{From: head.Hash()})
+	// Get commit iterator from default branch
+	commitIter, err := repo.Log(&git.LogOptions{From: defaultBranch.Hash()})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get commit log: %v", err)
 	}
@@ -175,10 +175,16 @@ func getCommitsWithLeadTime(repo *git.Repository, cutoffTime time.Time, pathArg 
 
 		switch method {
 		case "merge":
-			// For merge method, use the commit time as deploy time
-			// In practice, this would be when the commit appears in main branch
-			deployTime = commit.Author.When
-			leadTime = 0 // Simplified for demonstration - would need merge detection
+			// For merge method, find when this commit was merged to main branch
+			mergeTime, err := findCommitMergeTime(repo, commit.Hash)
+			if err != nil {
+				// If merge time cannot be determined, use commit time as fallback
+				deployTime = commit.Author.When
+				leadTime = 0 // Essentially no lead time for direct commits
+			} else {
+				deployTime = mergeTime
+				leadTime = calculateLeadTime(commit.Author.When, mergeTime)
+			}
 		case "tag":
 			// For tag method, find when this commit was tagged
 			tagTime, err := findCommitInTags(repo, commit.Hash)
@@ -188,14 +194,15 @@ func getCommitsWithLeadTime(repo *git.Repository, cutoffTime time.Time, pathArg 
 			deployTime = tagTime
 			leadTime = calculateLeadTime(commit.Author.When, tagTime)
 		default:
-			// Default to merge method with simplified calculation
-			deployTime = commit.Author.When
-			leadTime = 0
-		}
-
-		// For realistic demo, simulate lead times based on commit patterns
-		if leadTime == 0 {
-			leadTime = simulateLeadTime(commit)
+			// Default to merge method with proper calculation
+			mergeTime, err := findCommitMergeTime(repo, commit.Hash)
+			if err != nil {
+				deployTime = commit.Author.When
+				leadTime = 0
+			} else {
+				deployTime = mergeTime
+				leadTime = calculateLeadTime(commit.Author.When, mergeTime)
+			}
 		}
 
 		commitLeadTime := CommitLeadTime{
@@ -224,32 +231,151 @@ func getCommitsWithLeadTime(repo *git.Repository, cutoffTime time.Time, pathArg 
 	return commits, nil
 }
 
-// simulateLeadTime creates realistic lead times for demonstration
-func simulateLeadTime(commit *object.Commit) float64 {
-	// Use commit hash to generate deterministic but varied lead times
-	hashSum := 0
-	for _, b := range commit.Hash.String()[:8] {
-		hashSum += int(b)
+// getDefaultBranch resolves the repository's default branch
+func getDefaultBranch(repo *git.Repository) (*plumbing.Reference, error) {
+	// Try to get the default branch from HEAD
+	head, err := repo.Head()
+	if err == nil {
+		return head, nil
 	}
 
-	// Create different lead time patterns based on hash
-	switch hashSum % 4 {
-	case 0:
-		return float64(hashSum%12) + 1    // Elite: 1-12 hours
-	case 1:
-		return float64(hashSum%144) + 24  // High: 1-6 days
-	case 2:
-		return float64(hashSum%480) + 168 // Medium: 1-3 weeks
-	default:
-		return float64(hashSum%2160) + 720 // Low: 1-3 months
+	// Fallback: try common default branch names
+	defaultNames := []string{"refs/heads/main", "refs/heads/master"}
+	for _, name := range defaultNames {
+		ref, err := repo.Reference(plumbing.ReferenceName(name), true)
+		if err == nil {
+			return ref, nil
+		}
 	}
+
+	return nil, fmt.Errorf("could not determine default branch")
 }
 
-// findCommitInTags finds when a commit was first tagged (simplified)
+// findCommitMergeTime finds when a commit was merged to the main branch
+func findCommitMergeTime(repo *git.Repository, commitHash plumbing.Hash) (time.Time, error) {
+	// Get the default branch
+	defaultBranch, err := getDefaultBranch(repo)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	// Get all commits on the default branch
+	commitIter, err := repo.Log(&git.LogOptions{From: defaultBranch.Hash()})
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer commitIter.Close()
+
+	var foundMergeTime time.Time
+	found := false
+
+	// Look for merge commits that include our target commit
+	err = commitIter.ForEach(func(commit *object.Commit) error {
+		// If this is our target commit directly on main, use its commit time
+		if commit.Hash == commitHash {
+			foundMergeTime = commit.Author.When
+			found = true
+			return fmt.Errorf("found") // Break iteration
+		}
+
+		// Check merge commits (have multiple parents)
+		if len(commit.ParentHashes) > 1 {
+			// Check if our target commit is in any of the parent branches
+			for _, parentHash := range commit.ParentHashes {
+				isReachable, err := isCommitReachableFrom(repo, commitHash, parentHash)
+				if err == nil && isReachable {
+					// Check if this parent is not the main branch (first parent)
+					if parentHash != commit.ParentHashes[0] {
+						foundMergeTime = commit.Author.When
+						found = true
+						return fmt.Errorf("found") // Break iteration
+					}
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if found {
+		return foundMergeTime, nil
+	}
+
+	// If no merge found, this might be a direct commit or we can't determine merge time
+	return time.Time{}, fmt.Errorf("commit merge time not determinable")
+}
+
+// isCommitReachableFrom checks if targetCommit is reachable from fromCommit
+func isCommitReachableFrom(repo *git.Repository, targetCommit, fromCommit plumbing.Hash) (bool, error) {
+	// Start from fromCommit and traverse backwards
+	commitIter, err := repo.Log(&git.LogOptions{From: fromCommit})
+	if err != nil {
+		return false, err
+	}
+	defer commitIter.Close()
+
+	found := false
+	err = commitIter.ForEach(func(commit *object.Commit) error {
+		if commit.Hash == targetCommit {
+			found = true
+			return fmt.Errorf("found") // Break iteration
+		}
+		return nil
+	})
+
+	return found, nil
+}
+
+// findCommitInTags finds when a commit was first tagged (basic implementation)
 func findCommitInTags(repo *git.Repository, commitHash plumbing.Hash) (time.Time, error) {
-	// Simplified implementation - in practice would iterate through tags
-	// and find the earliest tag containing this commit
-	return time.Time{}, fmt.Errorf("commit not found in tags")
+	tagRefs, err := repo.Tags()
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to get tags: %w", err)
+	}
+	defer tagRefs.Close()
+
+	var earliestTagTime time.Time
+	found := false
+
+	err = tagRefs.ForEach(func(tagRef *plumbing.Reference) error {
+		tagObj, err := repo.TagObject(tagRef.Hash())
+		if err != nil {
+			// Might be a lightweight tag, try commit object
+			commit, err := repo.CommitObject(tagRef.Hash())
+			if err != nil {
+				return nil // Skip this tag
+			}
+			
+			// Check if our commit is reachable from this tag
+			isReachable, err := isCommitReachableFrom(repo, commitHash, commit.Hash)
+			if err == nil && isReachable {
+				if !found || commit.Author.When.Before(earliestTagTime) {
+					earliestTagTime = commit.Author.When
+					found = true
+				}
+			}
+			return nil
+		}
+
+		// Annotated tag
+		if tagObj.TargetType == plumbing.CommitObject && tagObj.Target == commitHash {
+			if !found || tagObj.Tagger.When.Before(earliestTagTime) {
+				earliestTagTime = tagObj.Tagger.When
+				found = true
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return time.Time{}, err
+	}
+	
+	if !found {
+		return time.Time{}, fmt.Errorf("commit not found in tags")
+	}
+
+	return earliestTagTime, nil
 }
 
 // calculateLeadTime calculates lead time in hours between two timestamps
@@ -334,13 +460,20 @@ func calculateChangeLeadTimeStats(commits []CommitLeadTime) *ChangeLeadTimeStats
 	stats.P95LeadTimeHours = calculatePercentile(leadTimes, 95)
 	stats.DORAPerformanceLevel = classifyDORAPerformanceLevel(stats.EliteCommits, stats.HighCommits, stats.MediumCommits, stats.LowCommits, stats.TotalCommits)
 
-	// Get fastest and slowest commits (already sorted)
+	// Sort commits by lead time for robustness (don't assume external sorting)
+	sortedCommits := make([]CommitLeadTime, len(commits))
+	copy(sortedCommits, commits)
+	sort.Slice(sortedCommits, func(i, j int) bool {
+		return sortedCommits[i].LeadTimeHours < sortedCommits[j].LeadTimeHours
+	})
+
+	// Get fastest and slowest commits from sorted list
 	limit := 5
-	if len(commits) < limit {
-		limit = len(commits)
+	if len(sortedCommits) < limit {
+		limit = len(sortedCommits)
 	}
-	stats.FastestCommits = commits[:limit]
-	stats.SlowestCommits = commits[len(commits)-limit:]
+	stats.FastestCommits = sortedCommits[:limit]
+	stats.SlowestCommits = sortedCommits[len(sortedCommits)-limit:]
 
 	// Reverse slowest commits to show highest lead times first
 	for i, j := 0, len(stats.SlowestCommits)-1; i < j; i, j = i+1, j-1 {
