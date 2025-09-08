@@ -176,8 +176,9 @@ func processCommitForFileChurn(c *object.Commit, pathArg string) (map[string]Fil
 		return nil
 	})
 	
-	// For merge commits, we only want to count changes from the first parent
-	// Use ceiling division to avoid truncating to 0
+	// For merge commits, we need to avoid double-counting line changes
+	// that appear in multiple parent diffs. Since we're already tracking unique files,
+	// we only need to adjust line counts to estimate actual changes in the merge.
 	if parentCount > 1 {
 		for path := range fileStats {
 			stats := fileStats[path]

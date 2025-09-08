@@ -169,6 +169,7 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 	defer parents.Close()
 	
 	parentCount := 0
+	fileSet := make(map[string]bool) // Track unique files across all parents
 	err := parents.ForEach(func(parent *object.Commit) error {
 		parentCount++
 		patch, err := parent.Patch(c)
@@ -177,7 +178,6 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 			return nil
 		}
 		
-		fileSet := make(map[string]bool)
 		for _, stat := range patch.Stats() {
 			if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
 				continue
@@ -188,21 +188,22 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 			fileSet[stat.Name] = true
 		}
 		
-		// Count unique files changed
-		for range fileSet {
-			filesChanged++
-		}
-		
 		return nil
 	})
 	
-	// For merge commits (commits with multiple parents), the diff is calculated
-	// against each parent, which can result in overcounting the number of files changed. To estimate the
-	// number of unique files changed in the merge commit, we divide the total by the number of
-	// parents. We use ceiling division to ensure that the result is not truncated to zero, which could happen
-	// if the total is less than the number of parents.
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	
+	filesChanged = len(fileSet)
+	
+	// For merge commits, we need to avoid double-counting line changes
+	// that appear in multiple parent diffs. Since we're already tracking unique files,
+	// we only need to adjust line counts to estimate actual changes in the merge.
 	if parentCount > 1 {
-		filesChanged = (filesChanged + parentCount - 1) / parentCount
+		// Divide line counts by parent count to estimate actual changes in the merge
+		additions = (additions + parentCount - 1) / parentCount
+		deletions = (deletions + parentCount - 1) / parentCount
 	}
 	
 	return additions, deletions, filesChanged, err
