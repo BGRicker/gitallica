@@ -386,8 +386,8 @@ Analyzes high-risk commits in the `src/` directory over the last 30 days.
 **Risk Classifications:**
 - **Low**: Small, focused commits (≤400 lines, ≤12 files)
 - **Moderate**: Sizeable commits that warrant attention
-- **High**: Large commits requiring careful review (>400 lines OR >12 files)
-- **Critical**: Monster commits with extremely high risk (>800 lines OR >20 files)
+- **High**: Large commits requiring careful review (>400 lines OR ≥12 files)
+- **Critical**: Monster commits with extremely high risk (≥800 lines OR ≥20 files)
 
 **Insights Provided:**
 - **Risk distribution** across all analyzed commits

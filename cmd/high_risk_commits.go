@@ -60,8 +60,8 @@ Research basis:
 - "Refactoring changes the program in small steps." — Martin Fowler
 
 Thresholds:
-- High Risk: >400 lines changed OR >12 files touched
-- Critical Risk: >800 lines changed OR >20 files touched
+- High Risk: >400 lines changed OR ≥12 files touched
+- Critical Risk: ≥800 lines changed OR ≥20 files touched
 
 The analysis helps identify commits that may need extra review attention or
 architectural consideration.`,
@@ -282,33 +282,21 @@ func calculateCommitChanges(commit *object.Commit, pathArg string) (int, int, er
 		return 0, 0, err
 	}
 	
-	changes, err := parentTree.Diff(currentTree)
+	// Compute single patch between trees for efficiency (avoids O(N) patch computations)
+	patch, err := parentTree.Patch(currentTree)
 	if err != nil {
 		return 0, 0, err
 	}
 	
+	// Get overall stats from the single patch
+	stats := patch.Stats()
 	fileSet := make(map[string]bool)
 	
-	for _, change := range changes {
-		// Get file path, handling renames
-		var filePath string
-		if change.To.Name != "" {
-			filePath = change.To.Name
-		} else if change.From.Name != "" {
-			filePath = change.From.Name
-		}
-		
-		if filePath != "" && matchesPathFilter(filePath, pathArg) {
-			fileSet[filePath] = true
-			
-			// Get patch to count line changes
-			patch, err := change.Patch()
-			if err == nil {
-				stats := patch.Stats()
-				for _, fileStat := range stats {
-					linesChanged += fileStat.Addition + fileStat.Deletion
-				}
-			}
+	// Filter stats to only include files matching the path filter
+	for _, fileStat := range stats {
+		if matchesPathFilter(fileStat.Name, pathArg) {
+			fileSet[fileStat.Name] = true
+			linesChanged += fileStat.Addition + fileStat.Deletion
 		}
 	}
 	
