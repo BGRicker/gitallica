@@ -74,44 +74,52 @@ func TestClassifyEntropyLevel(t *testing.T) {
 		expectedRecContains string
 	}{
 		{
-			name:        "high entropy subdirectory",
-			entropy:     3.0,
+			name:        "critical entropy subdirectory (80% above avg)",
+			entropy:     1.8, // 1.0 * 1.8 = 1.8 threshold
 			avgEntropy:  1.0,
 			dirPath:     "src",
 			expectedLevel: "Critical",
 			expectedRecContains: "refactoring",
 		},
 		{
-			name:        "medium entropy subdirectory",
-			entropy:     1.2,
+			name:        "high entropy subdirectory (40% above avg)",
+			entropy:     1.4, // 1.0 * 1.4 = 1.4 threshold
+			avgEntropy:  1.0,
+			dirPath:     "src",
+			expectedLevel: "High",
+			expectedRecContains: "refactoring",
+		},
+		{
+			name:        "medium entropy subdirectory (10% below avg)",
+			entropy:     0.9, // 1.0 * 0.9 = 0.9 threshold
 			avgEntropy:  1.0,
 			dirPath:     "src",
 			expectedLevel: "Medium",
 			expectedRecContains: "Monitor",
 		},
 		{
-			name:        "low entropy subdirectory",
-			entropy:     0.5,
+			name:        "low entropy subdirectory (well below avg)",
+			entropy:     0.4,
 			avgEntropy:  1.0,
 			dirPath:     "src",
 			expectedLevel: "Low",
 			expectedRecContains: "Good",
 		},
 		{
-			name:        "high entropy root directory",
-			entropy:     2.5,
+			name:        "high entropy root directory (critical + offset)",
+			entropy:     2.3, // (1.0 * 1.8) + 0.5 = 2.3 threshold
+			avgEntropy:  1.0,
+			dirPath:     "root",
+			expectedLevel: "High",
+			expectedRecContains: "organizing",
+		},
+		{
+			name:        "medium entropy root directory (high + offset)",
+			entropy:     1.7, // (1.0 * 1.4) + 0.3 = 1.7 threshold
 			avgEntropy:  1.0,
 			dirPath:     "root",
 			expectedLevel: "Medium",
 			expectedRecContains: "Acceptable",
-		},
-		{
-			name:        "medium entropy root directory",
-			entropy:     1.5,
-			avgEntropy:  1.0,
-			dirPath:     "root",
-			expectedLevel: "Low",
-			expectedRecContains: "Good",
 		},
 	}
 
@@ -234,11 +242,11 @@ func TestEntropyEdgeCases(t *testing.T) {
 			Description: "Test project",
 		}
 		level, recommendation := classifyEntropyLevelWithContext(1.0, 0.0, "src", projectType)
-		if level != "Medium" {
-			t.Errorf("Expected Medium level for entropy above zero average, got %s", level)
+		if level != "High" {
+			t.Errorf("Expected High level for entropy above zero average (minimum threshold), got %s", level)
 		}
-		if !strings.Contains(recommendation, "Monitor") {
-			t.Errorf("Expected Monitor recommendation, got %s", recommendation)
+		if !strings.Contains(recommendation, "refactoring") {
+			t.Errorf("Expected refactoring recommendation, got %s", recommendation)
 		}
 	})
 }

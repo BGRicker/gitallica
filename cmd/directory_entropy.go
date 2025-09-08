@@ -202,25 +202,46 @@ func isExpectedFileType(projectType ProjectType, dirPath string, fileExt string)
 func classifyEntropyLevelWithContext(entropy float64, avgEntropy float64, dirPath string, projectType ProjectType) (string, string) {
 	isRoot := dirPath == "root" || dirPath == "."
 	
+	// Calculate adaptive thresholds based on repository average
+	// This provides context-aware classification relative to the project's overall entropy
+	criticalThreshold := avgEntropy * 1.8  // 80% above average
+	highThreshold := avgEntropy * 1.4      // 40% above average  
+	mediumThreshold := avgEntropy * 0.9     // 10% below average
+	
+	// Ensure minimum thresholds for meaningful classification
+	if criticalThreshold < 1.5 {
+		criticalThreshold = 1.5
+	}
+	if highThreshold < 1.0 {
+		highThreshold = 1.0
+	}
+	if mediumThreshold < 0.5 {
+		mediumThreshold = 0.5
+	}
+	
 	if isRoot {
 		// Root directory has different rules based on project type
+		// Use higher thresholds since root directories naturally have mixed file types
+		rootHighThreshold := criticalThreshold + 0.5  // Use critical threshold + offset for root high
+		rootMediumThreshold := highThreshold + 0.3   // Use high threshold + offset for root medium
+		
 		switch {
-		case entropy >= 3.0:
+		case entropy >= rootHighThreshold:
 			return "High", "Consider organizing: too many file types in root"
-		case entropy >= 2.0:
+		case entropy >= rootMediumThreshold:
 			return "Medium", "Acceptable: root directory with mixed concerns"
 		default:
 			return "Low", "Good: well-organized root directory"
 		}
 	}
 	
-	// Subdirectories follow strict rules
+	// Subdirectories follow adaptive rules based on repository context
 	switch {
-	case entropy >= 2.0:
+	case entropy >= criticalThreshold:
 		return "Critical", "Urgent refactoring needed: severe boundary violations"
-	case entropy >= 1.5:
+	case entropy >= highThreshold:
 		return "High", "Consider refactoring: mixed concerns detected"
-	case entropy >= 0.8:
+	case entropy >= mediumThreshold:
 		return "Medium", "Monitor: some boundary erosion"
 	default:
 		return "Low", "Good: clear modular boundaries"
