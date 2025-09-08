@@ -180,6 +180,36 @@ Shows directory entropy analysis for the last 30 days.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze dead zones:
+
+```bash
+gitallica dead-zones
+```
+Identifies files untouched for ≥12 months that may represent technical debt.
+
+```bash
+gitallica dead-zones --limit 5
+```
+Shows top 5 oldest dead zone files.
+
+```bash
+gitallica dead-zones --last 6m --path src/
+```
+Shows dead zones in the `src/` directory, looking at the last 6 months of activity.
+
+**Risk Classification:**
+- **Low Risk**: 12-17 months untouched (consider reviewing)
+- **Medium Risk**: 18-23 months untouched (needs attention)  
+- **High Risk**: 24-35 months untouched (refactor or remove)
+- **Critical**: 36+ months untouched (urgent: refactor or delete)
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--limit` : Number of top results to show (default 10).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
