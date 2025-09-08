@@ -35,14 +35,11 @@ import (
 )
 
 const (
-	deadZoneThresholdMonths      = 12
-	lowRiskThresholdMonths       = 12
-	mediumRiskThresholdMonths    = 18
-	highRiskThresholdMonths      = 24
-	criticalRiskThresholdMonths = 36
+	// Dead zone threshold - teams should set context-specific thresholds
+	deadZoneThresholdMonths = 12  // Default threshold, teams should customize
 )
 
-const deadZonesBenchmarkContext = "Files untouched for ≥12 months become technical debt and should be refactored, revived, or deleted (Clean Code - Robert C. Martin)."
+const deadZonesBenchmarkContext = "Code age should guide architectural decisions; teams set context-specific thresholds (CodeScene)."
 
 // DeadZoneFileStats represents statistics for a potentially stale file
 type DeadZoneFileStats struct {
@@ -95,17 +92,14 @@ func isDeadZone(lastModified, referenceTime time.Time) bool {
 
 // classifyDeadZoneRisk classifies the risk level of a dead zone file
 func classifyDeadZoneRisk(ageInMonths int) (string, string) {
-	switch {
-	case ageInMonths < lowRiskThresholdMonths:
+	if ageInMonths < deadZoneThresholdMonths {
 		return "Active", "regularly maintained"
-	case ageInMonths < mediumRiskThresholdMonths:
+	} else if ageInMonths < 24 {
 		return "Low Risk", "Consider reviewing"
-	case ageInMonths < highRiskThresholdMonths:
+	} else if ageInMonths < 36 {
 		return "Medium Risk", "Needs attention"
-	case ageInMonths < criticalRiskThresholdMonths:
+	} else {
 		return "High Risk", "Refactor or remove"
-	default:
-		return "Critical", "Urgent: refactor or delete"
 	}
 }
 

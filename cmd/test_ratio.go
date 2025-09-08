@@ -34,17 +34,15 @@ import (
 )
 
 const (
-	// Research-backed thresholds from Robert C. Martin's Clean Code principles
-	testRatioHealthyThreshold   = 1.0  // 1:1 ratio is ideal
-	testRatioExcellentThreshold = 2.0  // Up to 2:1 is excellent
-	testRatioCautionThreshold   = 0.75 // Below 0.75:1 needs attention
-	testRatioWarningThreshold   = 0.5  // Below 0.5:1 is concerning
+	// Test ratio thresholds based on TSP study findings
+	testRatioTargetThreshold = 1.0  // 1:1 ratio is target
+	testRatioMinimumThreshold = 0.5 // Below 0.5:1 needs attention
 	
 	// Float comparison tolerance to handle precision issues
 	floatTolerance = 1e-9
 )
 
-const testRatioBenchmarkContext = "Test-to-code ratio ≈1:1 to 2:1 ensures comprehensive coverage without excessive overhead (Clean Code - Robert C. Martin)."
+const testRatioBenchmarkContext = "Teams often plan to write as much unit test code as production code (TSP study)."
 
 // floatEquals compares two floats with tolerance to handle precision issues
 func floatEquals(a, b float64) bool {
@@ -156,15 +154,13 @@ func classifyTestRatio(ratio float64) (string, string) {
 		return "Critical", "Urgent: add comprehensive test coverage"
 	case ratio < 0.25:
 		return "Critical", "Urgent: add comprehensive test coverage"
-	case ratio <= testRatioWarningThreshold:
+	case ratio < testRatioMinimumThreshold:
 		return "Warning", "Increase test coverage significantly"
-	case ratio < testRatioCautionThreshold:
-		return "Caution", "Consider adding more tests"
-	case ratio < testRatioHealthyThreshold:
-		return "Caution", "Consider adding more tests"
-	case floatEquals(ratio, testRatioHealthyThreshold):
+	case ratio < testRatioTargetThreshold:
+		return "Caution", "Consider adding more tests to reach 1:1 ratio"
+	case floatEquals(ratio, testRatioTargetThreshold):
 		return "Healthy", "Good balance of tests and source code"
-	case ratio <= testRatioExcellentThreshold:
+	case ratio <= 2.0:
 		return "Excellent", "Excellent test coverage"
 	default:
 		return "Caution", "Consider reviewing test complexity"

@@ -33,7 +33,7 @@ const lineKeySeparator = "\x00"
 
 
 // researchNote contains a short reference used in CLI output about healthy survival rates.
-const researchNote = "Healthy survival rates are typically above ~50% after 12 months (MSR, CodeScene research)."
+const researchNote = "Large-scale study of 3.3 billion code-line lifetimes shows median lifespan of ~2.4 years (Spinellis et al.)."
 
 func makeKey(filename, line string) string {
 	sum := sha256.Sum256([]byte(line))

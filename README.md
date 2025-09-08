@@ -45,19 +45,19 @@ go build -o gitallica .
 | Command | Description | Research Basis |
 |---------|-------------|----------------|
 | `churn` | Additions vs. deletions ratio | Microsoft Research |
-| `survival` | Code survival rate analysis | MSR, CodeScene |
-| `churn-files` | High-churn files identification | Martin Fowler |
-| `component-creation` | New component creation rate | Industry benchmarks |
+| `survival` | Code survival rate analysis | Spinellis et al. |
+| `churn-files` | High-churn files identification | Nagappan & Ball |
+| `component-creation` | New component creation rate | Kent Beck |
 | `directory-entropy` | Directory structure entropy | Edsger Dijkstra |
-| `dead-zones` | Untouched code identification | Robert C. Martin |
-| `bus-factor` | Knowledge concentration analysis | Martin Fowler |
-| `ownership-clarity` | Code ownership patterns | Industry research |
+| `dead-zones` | Untouched code identification | CodeScene |
+| `bus-factor` | Knowledge concentration analysis | GitHub empirical studies |
+| `ownership-clarity` | Code ownership patterns | Microsoft Research |
 | `onboarding-footprint` | New contributor analysis | Robert C. Martin |
-| `test-ratio` | Test-to-code ratio | Robert C. Martin |
-| `high-risk-commits` | Large commit identification | Kent Beck, Martin Fowler |
+| `test-ratio` | Test-to-code ratio | TSP study |
+| `high-risk-commits` | Large commit identification | Nokia Bell Labs |
 | `commit-cadence` | Commit frequency trends | Kent Beck |
 | `long-lived-branches` | Branch lifecycle analysis | DORA research |
-| `change-lead-time` | DORA lead time metrics | Accelerate research |
+| `change-lead-time` | DORA lead time metrics | DORA State of DevOps |
 
 **Note**: Review Bottlenecks (#13) requires GitHub API integration and is planned for future implementation.
 

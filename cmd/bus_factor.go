@@ -36,12 +36,13 @@ import (
 )
 
 const (
-	healthyBusFactorThreshold  = 4
-	mediumBusFactorThreshold   = 3
-	criticalBusFactorThreshold = 1
+	// Bus factor thresholds based on empirical GitHub research
+	// Most projects have bus factor of 1-2, with 46% having bus factor of 1
+	criticalBusFactorThreshold = 1  // Single point of failure
+	lowBusFactorThreshold      = 2  // Most common in empirical studies
 )
 
-const busFactorBenchmarkContext = "Target bus factor of 25-50% of team size ensures collective ownership without accountability gaps (Martin Fowler)."
+const busFactorBenchmarkContext = "Empirical studies show 46% of GitHub projects have bus factor of 1, 28% have bus factor of 2."
 
 // DirectoryBusFactorStats represents bus factor statistics for a directory
 type DirectoryBusFactorStats struct {
@@ -196,30 +197,22 @@ func calculateBusFactor(authorCommits map[string]int) int {
 	return busFactor
 }
 
-// classifyBusFactorRisk classifies the risk level based on bus factor and team size
+// classifyBusFactorRisk classifies the risk level based on bus factor
 func classifyBusFactorRisk(busFactor, totalContributors int) string {
 	if totalContributors == 0 {
 		return "Unknown"
 	}
 	
-	// Research-backed thresholds from Martin Fowler's collective ownership principles
-	// Target: 25-50% of team size for healthy ownership
-	healthyMinimum := max(healthyBusFactorThreshold, totalContributors/4) // At least 25% of team
-	
+	// Based on empirical GitHub research showing most projects have bus factor 1-2
 	switch {
 	case busFactor <= criticalBusFactorThreshold:
 		return "Critical"
-	case busFactor <= mediumBusFactorThreshold && totalContributors > 6:
+	case busFactor <= lowBusFactorThreshold:
 		return "High"
-	case busFactor < healthyMinimum:
-		if totalContributors <= 6 {
-			return "Medium"
-		}
-		return "High"
-	case busFactor >= healthyMinimum:
-		return "Healthy"
+	case busFactor <= 4:
+		return "Medium"
 	default:
-		return "Unknown"
+		return "Healthy"
 	}
 }
 

@@ -12,14 +12,16 @@ import (
 
 // Thresholds based on research: >400 lines or >10-12 files per commit is high risk
 const (
-	// Line change thresholds
-	highRiskLinesThreshold     = 400  // Kent Beck: "All changes are small"
-	criticalRiskLinesThreshold = 800  // Extremely large commits
+	// Risk thresholds based on Nokia Bell Labs research showing correlation 
+	// between change size and integration problems
+	moderateRiskLinesThreshold = 200  // Moderate complexity
+	highRiskLinesThreshold     = 500  // High complexity
+	criticalRiskLinesThreshold = 1000 // Critical complexity
 	
-	// File change thresholds  
-	moderateRiskFilesThreshold = 6    // Moderate complexity
-	highRiskFilesThreshold     = 12   // Martin Fowler: "small steps"
-	criticalRiskFilesThreshold = 20   // Monster commits
+	// File change thresholds
+	moderateRiskFilesThreshold = 5    // Moderate complexity
+	highRiskFilesThreshold     = 10   // High complexity
+	criticalRiskFilesThreshold = 20   // Critical complexity
 )
 
 // HighRiskCommit represents a commit with risk analysis
@@ -94,26 +96,23 @@ func init() {
 
 // classifyCommitRisk determines the risk level and reason for a commit
 func classifyCommitRisk(linesChanged, filesChanged int) (string, string) {
-	// Critical risk - monster commits
+	// Critical risk - very large changes
 	if linesChanged >= criticalRiskLinesThreshold || filesChanged >= criticalRiskFilesThreshold {
-		return "Critical", "Monster commit - extremely high risk"
+		return "Critical", "Very large changes increase integration risk"
 	}
 	
-	// High risk - large commits that need careful review
-	if linesChanged > highRiskLinesThreshold {
-		return "High", "Large line changes - review carefully"
-	}
-	if filesChanged >= highRiskFilesThreshold {
-		return "High", "Touches many files - high complexity"
+	// High risk - large changes that need careful review
+	if linesChanged >= highRiskLinesThreshold || filesChanged >= highRiskFilesThreshold {
+		return "High", "Large changes increase review complexity"
 	}
 	
 	// Moderate risk - sizeable commits
-	if linesChanged > 200 || filesChanged > moderateRiskFilesThreshold {
-		return "Moderate", "Moderately large commit"
+	if linesChanged >= moderateRiskLinesThreshold || filesChanged >= moderateRiskFilesThreshold {
+		return "Moderate", "Moderate complexity requires careful review"
 	}
 	
 	// Low risk - small, focused commits
-	return "Low", "Small, focused commit"
+	return "Low", "Small changes are easier to review and debug"
 }
 
 // calculateHighRiskCommitsStats computes statistics for the commit analysis
