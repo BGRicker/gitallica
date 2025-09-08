@@ -34,7 +34,8 @@ import (
 )
 
 const (
-	// Test ratio thresholds based on TSP study findings
+	// Test ratio thresholds based on findings from the Team Software Process (TSP) study:
+	// Watts S. Humphrey, "A Discipline for Software Engineering," Addison-Wesley, 1995.
 	testRatioTargetThreshold = 1.0  // 1:1 ratio is target
 	testRatioMinimumThreshold = 0.5 // Below 0.5:1 needs attention
 	

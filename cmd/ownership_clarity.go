@@ -41,7 +41,7 @@ const (
 	ownershipMinContributorsForAnalysis = 3 // Only analyze files with ≥3 contributors
 )
 
-const ownershipBenchmarkContext = "Balanced ownership prevents both bottlenecks and diffuse responsibility (Collective Ownership - Martin Fowler)."
+const ownershipBenchmarkContext = "Microsoft Research: Strong code ownership (one developer ≥80%) improves quality, while files with >9 contributors are 16x more likely to have vulnerabilities (Bird et al., MSR 2011)."
 
 // OwnershipClarityStats represents the ownership clarity analysis for files
 type OwnershipClarityStats struct {
@@ -105,16 +105,19 @@ func classifyOwnershipClarity(topOwnership float64, totalContributors int) (stri
 	}
 	
 	// Based on Microsoft research findings
-	if totalContributors > ownershipRiskThreshold {
-		return "Critical", "Too many contributors (>9) increases vulnerability risk 16x"
-	}
-	
+	// Strong ownership tends to improve quality regardless of contributor count
 	if topOwnership >= ownershipStrongThreshold {
 		return "Healthy", "Strong ownership tends to improve quality"
 	}
 	
+	// Excessive number of contributors without clear owner increases risk
+	if totalContributors > ownershipRiskThreshold {
+		return "Critical", "Too many contributors (>9) increases vulnerability risk 16x"
+	}
+	
+	// Small teams benefit from knowledge sharing
 	if totalContributors <= 3 {
-		return "Caution", "Small team - consider knowledge sharing"
+		return "Caution", "Small team – consider knowledge sharing"
 	}
 	
 	return "Warning", "Multiple contributors without clear ownership"

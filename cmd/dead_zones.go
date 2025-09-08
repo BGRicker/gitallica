@@ -37,6 +37,8 @@ import (
 const (
 	// Dead zone threshold - teams should set context-specific thresholds
 	deadZoneThresholdMonths = 12  // Default threshold, teams should customize
+	deadZoneLowRiskThresholdMonths = 24  // Low risk threshold
+	deadZoneHighRiskThresholdMonths = 36 // High risk threshold
 )
 
 const deadZonesBenchmarkContext = "Code age should guide architectural decisions; teams set context-specific thresholds (CodeScene)."
@@ -94,9 +96,9 @@ func isDeadZone(lastModified, referenceTime time.Time) bool {
 func classifyDeadZoneRisk(ageInMonths int) (string, string) {
 	if ageInMonths < deadZoneThresholdMonths {
 		return "Active", "regularly maintained"
-	} else if ageInMonths < 24 {
+	} else if ageInMonths < deadZoneLowRiskThresholdMonths {
 		return "Low Risk", "Consider reviewing"
-	} else if ageInMonths < 36 {
+	} else if ageInMonths < deadZoneHighRiskThresholdMonths {
 		return "Medium Risk", "Needs attention"
 	} else {
 		return "High Risk", "Refactor or remove"

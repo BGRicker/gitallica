@@ -41,7 +41,7 @@ const (
 	commitSizeFilesReasonableThreshold = 10 // Reasonable number of files
 )
 
-const commitSizeBenchmarkContext = "Large commits reduce review effectiveness and rollback safety. Studies show reviews are most effective under 400 lines."
+const commitSizeBenchmarkContext = "Large commits reduce review effectiveness and rollback safety. According to Google's Small CLs guidelines, reviews are most effective when changes are around 100 lines; 1000+ lines is considered too large."
 
 // CommitSizeStats represents size and risk statistics for a single commit.
 type CommitSizeStats struct {
