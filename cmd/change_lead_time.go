@@ -14,10 +14,10 @@ import (
 
 // DORA lead time thresholds in hours based on 2021 State of DevOps report
 const (
-	eliteLeadTimeThreshold  = 1.0    // <1 hour (elite performers)
-	highLeadTimeThreshold   = 24.0   // <1 day (high performers)
-	mediumLeadTimeThreshold = 168.0  // <1 week (medium performers)
-	// Above 1 week is Low performance
+	eliteLeadTimeThreshold  = 24.0   // <1 day (elite performers)
+	highLeadTimeThreshold   = 168.0  // <1 week (high performers)
+	mediumLeadTimeThreshold = 720.0  // <1 month (medium performers)
+	// Above 1 month is Low performance
 )
 
 // Performance level thresholds (percentage of commits in each category)
