@@ -191,34 +191,44 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 			periodEnd = periodStart.Add(24*time.Hour - time.Nanosecond)
 			periodKey = periodStart.Format("2006-01-02")
 		case "week":
-			// Start of week (Monday)
-			weekday := commit.Time.Weekday()
-			daysFromMonday := int(weekday) - 1
-			if weekday == time.Sunday {
-				daysFromMonday = 6
+			// Normalize to UTC and use ISO week calculation for consistent results
+			utcTime := commit.Time.UTC()
+			year, week := utcTime.ISOWeek()
+			// Get the Monday of this ISO week
+			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+			jan1Weekday := jan1.Weekday()
+			if jan1Weekday == time.Sunday {
+				jan1Weekday = 7 // Sunday = 7 in ISO
 			}
-			periodStart = commit.Time.AddDate(0, 0, -daysFromMonday)
-			year, month, day := periodStart.Date()
-			periodStart = time.Date(year, month, day, 0, 0, 0, 0, commit.Time.Location())
+			daysToFirstMonday := 1 - int(jan1Weekday)
+			if daysToFirstMonday > 0 {
+				daysToFirstMonday -= 7
+			}
+			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
 			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
-			periodKey = periodStart.Format("2006-01-02") // Use actual Monday date as key
+			periodKey = periodStart.Format("2006-W02") // ISO week format
 		case "month":
 			year, month, _ := commit.Time.Date()
 			periodStart = time.Date(year, month, 1, 0, 0, 0, 0, commit.Time.Location())
 			periodEnd = periodStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
 			periodKey = periodStart.Format("2006-01")
 		default:
-			// Default to week
-			weekday := commit.Time.Weekday()
-			daysFromMonday := int(weekday) - 1
-			if weekday == time.Sunday {
-				daysFromMonday = 6
+			// Default to week - use same ISO week logic as above
+			utcTime := commit.Time.UTC()
+			year, week := utcTime.ISOWeek()
+			// Get the Monday of this ISO week
+			jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+			jan1Weekday := jan1.Weekday()
+			if jan1Weekday == time.Sunday {
+				jan1Weekday = 7 // Sunday = 7 in ISO
 			}
-			periodStart = commit.Time.AddDate(0, 0, -daysFromMonday)
-			year, month, day := periodStart.Date()
-			periodStart = time.Date(year, month, day, 0, 0, 0, 0, commit.Time.Location())
+			daysToFirstMonday := 1 - int(jan1Weekday)
+			if daysToFirstMonday > 0 {
+				daysToFirstMonday -= 7
+			}
+			periodStart = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
 			periodEnd = periodStart.Add(7*24*time.Hour - time.Nanosecond)
-			periodKey = periodStart.Format("2006-01-02") // Use actual Monday date as key
+			periodKey = periodStart.Format("2006-W02") // ISO week format
 		}
 		
 		periodMap[periodKey]++
@@ -336,26 +346,40 @@ func classifyTrendDirection(slope float64) (string, float64) {
 
 // detectCommitSpikes identifies periods with unusually high commit activity
 func detectCommitSpikes(periods []TimePeriod) []TimePeriod {
-	if len(periods) < 3 {
+	// Require minimum periods for robust detection
+	if len(periods) < 5 {
 		return []TimePeriod{}
 	}
 	
-	// Calculate average for baseline
-	total := 0
-	for _, period := range periods {
-		total += period.CommitCount
+	// Use median for more robust baseline (less affected by extremes)
+	counts := make([]int, len(periods))
+	for i, period := range periods {
+		counts[i] = period.CommitCount
 	}
-	average := float64(total) / float64(len(periods))
+	sort.Ints(counts)
+	
+	var baseline float64
+	mid := len(counts) / 2
+	if len(counts)%2 == 0 {
+		baseline = float64(counts[mid-1]+counts[mid]) / 2
+	} else {
+		baseline = float64(counts[mid])
+	}
+	
+	// Guard against zero baseline
+	if baseline == 0 {
+		return []TimePeriod{}
+	}
 	
 	var spikes []TimePeriod
-	spikeThreshold := average * spikeThresholdMultiplier
+	spikeThreshold := baseline * spikeThresholdMultiplier
 	
 	for _, period := range periods {
 		if float64(period.CommitCount) > spikeThreshold {
 			spike := period
 			
 			// Classify spike severity
-			ratio := float64(period.CommitCount) / average
+			ratio := float64(period.CommitCount) / baseline
 			if ratio >= 2.5 {
 				spike.Severity = "High"
 			} else if ratio >= 2.0 {
@@ -373,26 +397,40 @@ func detectCommitSpikes(periods []TimePeriod) []TimePeriod {
 
 // detectCommitDips identifies periods with unusually low commit activity
 func detectCommitDips(periods []TimePeriod) []TimePeriod {
-	if len(periods) < 3 {
+	// Require minimum periods for robust detection
+	if len(periods) < 5 {
 		return []TimePeriod{}
 	}
 	
-	// Calculate average for baseline
-	total := 0
-	for _, period := range periods {
-		total += period.CommitCount
+	// Use median for more robust baseline (less affected by extremes)
+	counts := make([]int, len(periods))
+	for i, period := range periods {
+		counts[i] = period.CommitCount
 	}
-	average := float64(total) / float64(len(periods))
+	sort.Ints(counts)
+	
+	var baseline float64
+	mid := len(counts) / 2
+	if len(counts)%2 == 0 {
+		baseline = float64(counts[mid-1]+counts[mid]) / 2
+	} else {
+		baseline = float64(counts[mid])
+	}
+	
+	// Guard against zero baseline
+	if baseline == 0 {
+		return []TimePeriod{}
+	}
 	
 	var dips []TimePeriod
-	dipThreshold := average * dipThresholdMultiplier
+	dipThreshold := baseline * dipThresholdMultiplier
 	
 	for _, period := range periods {
 		if float64(period.CommitCount) < dipThreshold {
 			dip := period
 			
 			// Classify dip severity
-			ratio := float64(period.CommitCount) / average
+			ratio := float64(period.CommitCount) / baseline
 			if ratio <= 0.15 {
 				dip.Severity = "High"
 			} else if ratio <= 0.25 {
@@ -452,6 +490,7 @@ func classifySustainabilityLevel(avgCommits float64, spikeCount, dipCount int, t
 }
 
 // commitAffectsPath checks if a commit affects the specified path
+// Optimized for performance with early returns and minimal diff computation
 func commitAffectsPath(commit *object.Commit, pathArg string) (bool, error) {
 	if commit.NumParents() == 0 {
 		// Initial commit - check if it has files in the path
@@ -464,13 +503,17 @@ func commitAffectsPath(commit *object.Commit, pathArg string) (bool, error) {
 		err = tree.Files().ForEach(func(file *object.File) error {
 			if matchesPathFilter(file.Name, pathArg) {
 				found = true
+				return fmt.Errorf("found") // Early exit optimization
 			}
 			return nil
 		})
+		if err != nil && err.Error() == "found" {
+			return true, nil
+		}
 		return found, err
 	}
 	
-	// Regular commit - check diff with parent
+	// Regular commit - optimized diff check
 	parent, err := commit.Parent(0)
 	if err != nil {
 		return false, err
@@ -486,11 +529,13 @@ func commitAffectsPath(commit *object.Commit, pathArg string) (bool, error) {
 		return false, err
 	}
 	
+	// Use efficient patch computation (single patch, not per-file)
 	patch, err := parentTree.Patch(currentTree)
 	if err != nil {
 		return false, err
 	}
 	
+	// Early return on first match for better performance
 	stats := patch.Stats()
 	for _, fileStat := range stats {
 		if matchesPathFilter(fileStat.Name, pathArg) {
@@ -561,7 +606,10 @@ func printCommitCadenceStats(stats *CommitCadenceStats, period string) {
 	
 	// Recent periods (last 5)
 	if len(stats.TimePeriods) > 0 {
-		recentCount := min(5, len(stats.TimePeriods))
+		recentCount := 5
+		if len(stats.TimePeriods) < 5 {
+			recentCount = len(stats.TimePeriods)
+		}
 		fmt.Printf("Recent Periods (last %d):\n", recentCount)
 		
 		for i := len(stats.TimePeriods) - recentCount; i < len(stats.TimePeriods); i++ {
