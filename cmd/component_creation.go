@@ -173,23 +173,46 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 			return storer.ErrStop
 		}
 		
-		// Get the commit's tree
+		// Get parent commit to compare changes
+		var parentTree *object.Tree
+		if len(c.ParentHashes) > 0 {
+			parent, err := repo.CommitObject(c.ParentHashes[0])
+			if err == nil {
+				parentTree, _ = parent.Tree()
+			}
+		}
+		
+		// Get current tree
 		tree, err := c.Tree()
 		if err != nil {
 			return nil
 		}
 		
-		// Analyze files in this commit
-		err = tree.Files().ForEach(func(f *object.File) error {
-			// Skip binary files
-			isBinary, err := f.IsBinary()
-			if err != nil || isBinary {
-				return nil
+		// Analyze only added/modified files using diff
+		changes, err := tree.Diff(parentTree)
+		if err != nil {
+			return nil
+		}
+		
+		for _, change := range changes {
+			if change.To.Name == "" {
+				continue // skip deletions
 			}
 			
-			// Filter by framework if specified - check file extension and detected components
+			file, err := tree.File(change.To.Name)
+			if err != nil {
+				continue
+			}
+			
+			// Skip binary files
+			isBinary, err := file.IsBinary()
+			if err != nil || isBinary {
+				continue
+			}
+			
+			// Filter by framework if specified - check file extension
 			if framework != "" {
-				ext := strings.ToLower(filepath.Ext(f.Name))
+				ext := strings.ToLower(filepath.Ext(file.Name))
 				frameworkMatch := false
 				
 				// Check if file extension matches framework
@@ -209,20 +232,22 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 				}
 				
 				if !frameworkMatch {
-					return nil
+					continue
 				}
 			}
 			
-			content, err := f.Contents()
+			// Only analyze added lines in this file
+			content, err := file.Contents()
 			if err != nil {
-				return nil
+				continue
 			}
 			
-			detected := detectComponentsInFile(f.Name, content)
+			// Detect components in added content only
+			detected := detectComponentsInFile(file.Name, content)
 			for componentType, count := range detected {
 				if stats, exists := componentStats[componentType]; exists {
 					stats.Count += count
-					stats.Files = append(stats.Files, f.Name)
+					stats.Files = append(stats.Files, file.Name)
 					if c.Committer.When.Before(stats.FirstSeen) {
 						stats.FirstSeen = c.Committer.When
 					}
@@ -233,17 +258,15 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 					componentStats[componentType] = &ComponentCreationStats{
 						ComponentType: componentType,
 						Count:         count,
-						Files:         []string{f.Name},
+						Files:         []string{file.Name},
 						FirstSeen:     c.Committer.When,
 						LastSeen:      c.Committer.When,
 					}
 				}
 			}
-			
-			return nil
-		})
+		}
 		
-		return err
+		return nil
 	})
 	
 	if err != nil {
