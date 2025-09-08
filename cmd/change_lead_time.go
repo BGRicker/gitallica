@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -25,6 +26,12 @@ const (
 	highPerformanceThreshold   = 0.6  // 60%+ elite+high commits for High performance  
 	mediumPerformanceThreshold = 0.5  // 50%+ elite+high+medium commits for Medium performance
 	// Below 50% elite+high+medium is Low performance
+)
+
+// Sentinel errors for iteration control
+var (
+	ErrFoundTarget = errors.New("target found")
+	ErrFoundCommit = errors.New("commit found") 
 )
 
 // CommitLeadTime represents a commit with its lead time measurement
@@ -275,7 +282,7 @@ func findCommitMergeTime(repo *git.Repository, commitHash plumbing.Hash) (time.T
 		if commit.Hash == commitHash {
 			foundMergeTime = commit.Author.When
 			found = true
-			return fmt.Errorf("found") // Break iteration
+			return ErrFoundTarget // Break iteration
 		}
 
 		// Check merge commits (have multiple parents)
@@ -288,7 +295,7 @@ func findCommitMergeTime(repo *git.Repository, commitHash plumbing.Hash) (time.T
 					if parentHash != commit.ParentHashes[0] {
 						foundMergeTime = commit.Author.When
 						found = true
-						return fmt.Errorf("found") // Break iteration
+						return ErrFoundTarget // Break iteration
 					}
 				}
 			}
@@ -296,6 +303,11 @@ func findCommitMergeTime(repo *git.Repository, commitHash plumbing.Hash) (time.T
 
 		return nil
 	})
+
+	// Check if we found the target (ignore sentinel errors used for flow control)
+	if err != nil && err != ErrFoundTarget {
+		return time.Time{}, err
+	}
 
 	if found {
 		return foundMergeTime, nil
@@ -318,10 +330,15 @@ func isCommitReachableFrom(repo *git.Repository, targetCommit, fromCommit plumbi
 	err = commitIter.ForEach(func(commit *object.Commit) error {
 		if commit.Hash == targetCommit {
 			found = true
-			return fmt.Errorf("found") // Break iteration
+			return ErrFoundCommit // Break iteration
 		}
 		return nil
 	})
+
+	// Check for actual errors (ignore sentinel error used for flow control)
+	if err != nil && err != ErrFoundCommit {
+		return false, err
+	}
 
 	return found, nil
 }

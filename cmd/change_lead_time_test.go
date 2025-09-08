@@ -10,7 +10,7 @@ func TestChangeLeadTimeAnalysis(t *testing.T) {
 	// Test data: commits with different lead times
 	commits := []CommitLeadTime{
 		{Hash: "abc123", CommitTime: time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC), LeadTimeHours: 4.0},   // Elite: 4 hours
-		{Hash: "def456", CommitTime: time.Date(2024, 1, 2, 9, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 4, 9, 0, 0, 0, time.UTC), LeadTimeHours: 48.0},     // High: 2 days  
+		{Hash: "def456", CommitTime: time.Date(2024, 1, 2, 9, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 4, 9, 0, 0, 0, time.UTC), LeadTimeHours: 48.0},     // High: 2 days
 		{Hash: "ghi789", CommitTime: time.Date(2024, 1, 5, 8, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 15, 8, 0, 0, 0, time.UTC), LeadTimeHours: 240.0},   // Medium: 10 days
 		{Hash: "jkl012", CommitTime: time.Date(2024, 1, 10, 7, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 2, 20, 7, 0, 0, 0, time.UTC), LeadTimeHours: 984.0}, // Low: 41 days
 		{Hash: "mno345", CommitTime: time.Date(2024, 1, 15, 6, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 15, 18, 0, 0, 0, time.UTC), LeadTimeHours: 12.0}, // Elite: 12 hours
