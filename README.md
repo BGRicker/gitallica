@@ -152,6 +152,34 @@ Shows top 5 Ruby component types by creation count.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze directory entropy:
+
+```bash
+gitallica directory-entropy
+```
+Analyzes entropy across repository directories to identify areas with weak modularity. Automatically detects project type (Go, Node.js, Python, Ruby, etc.) for context-aware analysis.
+
+```bash
+gitallica directory-entropy --limit 5
+```
+Shows top 5 high and low entropy directories.
+
+```bash
+gitallica directory-entropy --last 30d
+```
+Shows directory entropy analysis for the last 30 days.
+
+**Context-Aware Analysis:**
+- **Project Type Detection**: Automatically identifies Go CLI, Node.js, Python, Ruby/Rails, and generic projects
+- **Root Directory Rules**: Different entropy thresholds for root vs. subdirectories
+- **Framework-Specific Patterns**: Understands expected file types for each project structure
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--limit` : Number of top results to show (default 10).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
@@ -217,12 +245,12 @@ A spike in new models or services can indicate architectural sprawl.
 ### 5. **Directory Entropy**  
 *When clean albums turn into messy mixtapes.*  
 
-**Threshold:** Compare entropy across directories; flag outliers relative to team norms.  
+**Threshold:** Context-aware analysis with different rules for root vs. subdirectories.  
 
 **Why:**  
-> “Simplicity is prerequisite for reliability.” — *Edsger W. Dijkstra*  
+> "Simplicity is prerequisite for reliability." — *Edsger W. Dijkstra*  
 
-High entropy signals weak modularity and eroded boundaries.  
+High entropy signals weak modularity and eroded boundaries. **gitallica** automatically detects project type (Go, Node.js, Python, Ruby, etc.) and applies appropriate entropy thresholds based on expected directory structures and file type patterns.  
 
 ---
 
@@ -349,6 +377,7 @@ These are the DORA benchmarks for lead time. Lead time reflects delivery health.
 - **Configurable thresholds:** Override defaults via config or CLI flags.  
 - **Tracing thresholds:** Each metric cites rationale from authoritative sources.  
 - **Performance-conscious design:** Heavy metrics run lazily or on demand.  
+- **Context-aware analysis:** Automatically detects project type and applies appropriate thresholds for accurate insights.  
 
 ---
 
@@ -356,8 +385,10 @@ These are the DORA benchmarks for lead time. Lead time reflects delivery health.
 
 Other tools give you vanity metrics like stars and forks. **gitallica** digs deeper—into how your codebase evolves, where risks lie, and how your team really works.  
 
+**Intelligent Analysis:** Context-aware metrics that understand your project type (Go, Node.js, Python, Ruby, etc.) and apply appropriate thresholds—no more false positives from standard project structures.
+
 - **Managers** → Spot architectural rot and churn early.  
 - **Tech leads** → See review friction and risk hotspots.  
 - **Developers** → Understand fragile areas and onboarding hurdles.  
 
-⚡ *Don’t just play your repo. Rock it—consciously.*  
+⚡ *Don't just play your repo. Rock it—consciously.*  
