@@ -14,7 +14,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const directoryEntropyContext = "High entropy signals weak modularity and eroded boundaries. Clean directories have focused purpose."
+const (
+	directoryEntropyContext = "High entropy signals weak modularity and eroded boundaries. Clean directories have focused purpose."
+	
+	// Adaptive threshold multipliers for context-aware classification
+	criticalThresholdMultiplier = 1.8  // 80% above average
+	highThresholdMultiplier     = 1.4  // 40% above average  
+	mediumThresholdMultiplier   = 0.9  // 10% below average
+	
+	// Minimum thresholds to ensure meaningful classification
+	minCriticalThreshold = 1.5
+	minHighThreshold     = 1.0
+	minMediumThreshold   = 0.5
+	
+	// Root directory offsets (root directories naturally have mixed file types)
+	rootHighOffset   = 0.5  // Offset for root high threshold
+	rootMediumOffset = 0.3  // Offset for root medium threshold
+)
 
 // DirectoryEntropyStats represents entropy statistics for a directory
 type DirectoryEntropyStats struct {
@@ -139,6 +155,7 @@ func detectProjectType(tree *object.Tree) ProjectType {
 	}
 	
 	// Detect Ruby/Rails project - check for Gemfile in root
+	// Note: rootFiles stores lowercase filenames, so "Gemfile" becomes "gemfile"
 	if fileExtensions[".rb"] && rootFiles["gemfile"] {
 		return ProjectType{
 			Name: "Ruby/Rails Application",
@@ -205,26 +222,26 @@ func classifyEntropyLevelWithContext(entropy float64, avgEntropy float64, dirPat
 	
 	// Calculate adaptive thresholds based on repository average
 	// This provides context-aware classification relative to the project's overall entropy
-	criticalThreshold := avgEntropy * 1.8  // 80% above average
-	highThreshold := avgEntropy * 1.4      // 40% above average  
-	mediumThreshold := avgEntropy * 0.9     // 10% below average
+	criticalThreshold := avgEntropy * criticalThresholdMultiplier  // 80% above average
+	highThreshold := avgEntropy * highThresholdMultiplier          // 40% above average  
+	mediumThreshold := avgEntropy * mediumThresholdMultiplier       // 10% below average
 	
 	// Ensure minimum thresholds for meaningful classification
-	if criticalThreshold < 1.5 {
-		criticalThreshold = 1.5
+	if criticalThreshold < minCriticalThreshold {
+		criticalThreshold = minCriticalThreshold
 	}
-	if highThreshold < 1.0 {
-		highThreshold = 1.0
+	if highThreshold < minHighThreshold {
+		highThreshold = minHighThreshold
 	}
-	if mediumThreshold < 0.5 {
-		mediumThreshold = 0.5
+	if mediumThreshold < minMediumThreshold {
+		mediumThreshold = minMediumThreshold
 	}
 	
 	if isRoot {
 		// Root directory has different rules based on project type
 		// Use higher thresholds since root directories naturally have mixed file types
-		rootHighThreshold := criticalThreshold + 0.5  // Use critical threshold + offset for root high
-		rootMediumThreshold := highThreshold + 0.3   // Use high threshold + offset for root medium
+		rootHighThreshold := criticalThreshold + rootHighOffset   // Use critical threshold + offset for root high
+		rootMediumThreshold := highThreshold + rootMediumOffset   // Use high threshold + offset for root medium
 		
 		switch {
 		case entropy >= rootHighThreshold:
