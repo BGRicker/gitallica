@@ -152,7 +152,7 @@ func TestCalculateOwnershipClarity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			topOwnership, status, contributors := calculateOwnershipClarity(tt.commitsByContributor)
 			
-			if floatDifference(topOwnership, tt.expectedTopOwnership) > 0.01 { // Allow small floating point differences
+			if floatDifference(topOwnership, tt.expectedTopOwnership) > testToleranceOwnership { // Allow small floating point differences
 				t.Errorf("calculateOwnershipClarity() topOwnership = %v, want %v", topOwnership, tt.expectedTopOwnership)
 			}
 			if status != tt.expectedStatus {
@@ -315,7 +315,7 @@ func TestOwnershipClarityEdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			topOwnership, status, _ := calculateOwnershipClarity(tt.commitsByContributor)
 			
-			if floatDifference(topOwnership, tt.expectedTopOwnership) > 0.01 {
+			if floatDifference(topOwnership, tt.expectedTopOwnership) > testToleranceOwnership {
 				t.Errorf("calculateOwnershipClarity() topOwnership = %v, want %v", topOwnership, tt.expectedTopOwnership)
 			}
 			if status != tt.expectedStatus {

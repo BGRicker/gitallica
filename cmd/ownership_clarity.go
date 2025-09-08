@@ -33,11 +33,34 @@ import (
 )
 
 const (
-	// Research-backed thresholds based on collective ownership principles
-	ownershipHealthyMinThreshold         = 0.50  // At least 50% ownership is healthy for clear accountability
-	ownershipConcentratedThreshold       = 0.80  // Above 80% ownership may create bottlenecks
-	ownershipCriticalThreshold           = 0.25  // Below 25% ownership in large teams indicates diffuse ownership
-	ownershipMinContributorsForAnalysis  = 10    // Only analyze diffuse ownership when ≥10 contributors
+	// Thresholds for file ownership classification, based on collective ownership
+	// research (see Martin Fowler, "Collective Ownership").
+	
+	// ownershipHealthyMinThreshold applies only to files with more than 3
+	// contributors.
+	// If the top contributor owns at least 50% of the commits, the file is considered
+	// to have clear accountability.
+	// This threshold is based on research suggesting that moderate concentration of
+	// ownership supports maintainability.
+	ownershipHealthyMinThreshold = 0.50
+	
+	// ownershipConcentratedThreshold applies to all files.
+	// If the top contributor owns more than 80% of the commits, the file may be at
+	// risk of bottlenecks or knowledge silos.
+	// This threshold is based on studies indicating that excessive concentration can
+	// harm team resilience and code review effectiveness.
+	ownershipConcentratedThreshold = 0.80
+	
+	// ownershipCriticalThreshold applies to files with many contributors.
+	// Below 25% ownership in large teams indicates diffuse ownership without
+	// clear maintainers.
+	ownershipCriticalThreshold = 0.25
+	
+	// ownershipMinContributorsForAnalysis: Only analyze diffuse ownership when ≥10 contributors
+	ownershipMinContributorsForAnalysis = 10
+	
+	// Test tolerance for floating point comparisons
+	testToleranceOwnership = 0.01
 )
 
 const ownershipBenchmarkContext = "Balanced ownership prevents both bottlenecks and diffuse responsibility (Collective Ownership - Martin Fowler)."
@@ -311,17 +334,27 @@ func printOwnershipClarityStats(stats *OwnershipClarityStats, pathArg string, li
 	
 	// Summary by status
 	fmt.Printf("Ownership Distribution:\n")
-	fmt.Printf("  Healthy: %d files (%.1f%%)\n", stats.HealthyFiles, 
-		float64(stats.HealthyFiles)/float64(stats.FilesAnalyzed)*100)
-	fmt.Printf("  Caution: %d files (%.1f%%)\n", stats.CautionFiles,
-		float64(stats.CautionFiles)/float64(stats.FilesAnalyzed)*100)
-	fmt.Printf("  Warning: %d files (%.1f%%)\n", stats.WarningFiles,
-		float64(stats.WarningFiles)/float64(stats.FilesAnalyzed)*100)
-	fmt.Printf("  Critical: %d files (%.1f%%)\n", stats.CriticalFiles,
-		float64(stats.CriticalFiles)/float64(stats.FilesAnalyzed)*100)
-	if stats.UnknownFiles > 0 {
-		fmt.Printf("  Unknown: %d files (%.1f%%)\n", stats.UnknownFiles,
-			float64(stats.UnknownFiles)/float64(stats.FilesAnalyzed)*100)
+	if stats.FilesAnalyzed == 0 {
+		fmt.Printf("  Healthy: %d files (0.0%%)\n", stats.HealthyFiles)
+		fmt.Printf("  Caution: %d files (0.0%%)\n", stats.CautionFiles)
+		fmt.Printf("  Warning: %d files (0.0%%)\n", stats.WarningFiles)
+		fmt.Printf("  Critical: %d files (0.0%%)\n", stats.CriticalFiles)
+		if stats.UnknownFiles > 0 {
+			fmt.Printf("  Unknown: %d files (0.0%%)\n", stats.UnknownFiles)
+		}
+	} else {
+		fmt.Printf("  Healthy: %d files (%.1f%%)\n", stats.HealthyFiles, 
+			float64(stats.HealthyFiles)/float64(stats.FilesAnalyzed)*100)
+		fmt.Printf("  Caution: %d files (%.1f%%)\n", stats.CautionFiles,
+			float64(stats.CautionFiles)/float64(stats.FilesAnalyzed)*100)
+		fmt.Printf("  Warning: %d files (%.1f%%)\n", stats.WarningFiles,
+			float64(stats.WarningFiles)/float64(stats.FilesAnalyzed)*100)
+		fmt.Printf("  Critical: %d files (%.1f%%)\n", stats.CriticalFiles,
+			float64(stats.CriticalFiles)/float64(stats.FilesAnalyzed)*100)
+		if stats.UnknownFiles > 0 {
+			fmt.Printf("  Unknown: %d files (%.1f%%)\n", stats.UnknownFiles,
+				float64(stats.UnknownFiles)/float64(stats.FilesAnalyzed)*100)
+		}
 	}
 	fmt.Println()
 	
