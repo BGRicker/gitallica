@@ -280,6 +280,42 @@ Analyzes test-to-code ratio for files in the `src/` directory only.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze ownership clarity:
+
+```bash
+gitallica ownership-clarity
+```
+Analyzes ownership clarity across all repository files to identify unclear ownership patterns.
+
+```bash
+gitallica ownership-clarity --limit 5
+```
+Shows top 5 files with ownership clarity issues.
+
+```bash
+gitallica ownership-clarity --last 6m --path src/
+```
+Analyzes ownership clarity for the `src/` directory over the last 6 months.
+
+**Intelligent Analysis:**
+- **Balanced Ownership Detection**: Identifies both overly concentrated and diffuse ownership patterns
+- **Team Size Awareness**: Applies different thresholds for small vs. large contributor teams
+- **Research-Based Classification**: Based on Martin Fowler's collective ownership principles
+- **Actionable Recommendations**: Provides specific guidance for improving ownership balance
+
+**Ownership Classifications:**
+- **Healthy**: Good ownership balance (40-80% primary ownership)
+- **Caution**: Too concentrated (>80% single owner in teams >3)
+- **Warning**: Diffuse ownership without clear primary maintainer
+- **Critical**: Extremely diffuse ownership in large contributor base
+
+**Available flags:**
+- `--last` : Specify the time window to analyze, in the format `#{number}{unit}` (e.g., `30d`, `6m`, `1y`).
+- `--path` : Scope the analysis to a specific directory or path within the repository.
+- `--limit` : Number of files to show in detailed analysis (default 10).
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
