@@ -36,6 +36,7 @@ type ComponentCreationStats struct {
 	ComponentType string
 	Count         int
 	Files         []string
+	FileSet       map[string]bool // O(1) lookup for duplicate prevention
 	FirstSeen     time.Time
 	LastSeen      time.Time
 }
@@ -251,11 +252,16 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 			// Extract only added lines from the patch
 			var addedContent strings.Builder
 			for _, filePatch := range patch.FilePatches() {
+				// Collect all diff.Add chunks first for efficiency
+				var addChunks []diff.Chunk
 				for _, chunk := range filePatch.Chunks() {
-					// Check chunk type before processing content for efficiency
 					if chunk.Type() == diff.Add {
-						addedContent.WriteString(chunk.Content())
+						addChunks = append(addChunks, chunk)
 					}
+				}
+				// Process collected chunks without repeated condition checking
+				for _, chunk := range addChunks {
+					addedContent.WriteString(chunk.Content())
 				}
 			}
 			
@@ -269,15 +275,16 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 			for componentType, count := range detected {
 				if stats, exists := componentStats[componentType]; exists {
 					stats.Count += count
-					// Avoid duplicate file entries
-					alreadyPresent := false
-					for _, fname := range stats.Files {
-						if fname == file.Name {
-							alreadyPresent = true
-							break
+					// Avoid duplicate file entries using O(1) map lookup
+					if stats.FileSet == nil {
+						stats.FileSet = make(map[string]bool)
+						// Initialize map with existing files
+						for _, fname := range stats.Files {
+							stats.FileSet[fname] = true
 						}
 					}
-					if !alreadyPresent {
+					if !stats.FileSet[file.Name] {
+						stats.FileSet[file.Name] = true
 						stats.Files = append(stats.Files, file.Name)
 					}
 					if c.Committer.When.Before(stats.FirstSeen) {
@@ -291,6 +298,7 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 						ComponentType: componentType,
 						Count:         count,
 						Files:         []string{file.Name},
+						FileSet:       map[string]bool{file.Name: true},
 						FirstSeen:     c.Committer.When,
 						LastSeen:      c.Committer.When,
 					}
