@@ -377,6 +377,7 @@ These are the DORA benchmarks for lead time. Lead time reflects delivery health.
 - **Configurable thresholds:** Override defaults via config or CLI flags.  
 - **Tracing thresholds:** Each metric cites rationale from authoritative sources.  
 - **Performance-conscious design:** Heavy metrics run lazily or on demand.  
+- **Context-aware analysis:** Automatically detects project type and applies appropriate thresholds for accurate insights.  
 
 ---
 
@@ -384,8 +385,10 @@ These are the DORA benchmarks for lead time. Lead time reflects delivery health.
 
 Other tools give you vanity metrics like stars and forks. **gitallica** digs deeper—into how your codebase evolves, where risks lie, and how your team really works.  
 
+**Intelligent Analysis:** Context-aware metrics that understand your project type (Go, Node.js, Python, Ruby, etc.) and apply appropriate thresholds—no more false positives from standard project structures.
+
 - **Managers** → Spot architectural rot and churn early.  
 - **Tech leads** → See review friction and risk hotspots.  
 - **Developers** → Understand fragile areas and onboarding hurdles.  
 
-⚡ *Don’t just play your repo. Rock it—consciously.*  
+⚡ *Don't just play your repo. Rock it—consciously.*  
