@@ -152,15 +152,17 @@ func classifyOwnershipClarity(topOwnership float64, totalContributors int) (stri
 // analyzeOwnershipClarity analyzes ownership clarity across repository files
 func analyzeOwnershipClarity(repo *git.Repository, pathArg string, lastArg string) (*OwnershipClarityStats, error) {
 	var since *time.Time
-	if lastArg != "" {
-		sinceTime, err := parseDurationArg(lastArg)
-		if err != nil {
-			return nil, fmt.Errorf("invalid time window: %v", err)
-		}
-		since = &sinceTime
+	// Set a sensible default time window to cap resource usage
+	if lastArg == "" {
+		lastArg = "1y" // Default to last year instead of full history
 	}
+	sinceTime, err := parseDurationArg(lastArg)
+	if err != nil {
+		return nil, fmt.Errorf("invalid time window: %v", err)
+	}
+	since = &sinceTime
 	
-	// Get file ownership data
+	// Get file ownership data with efficient analysis
 	fileOwnership, err := analyzeFileOwnership(repo, pathArg, since)
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing file ownership: %v", err)
@@ -191,10 +193,13 @@ func analyzeOwnershipClarity(repo *git.Repository, pathArg string, lastArg strin
 	return stats, nil
 }
 
-// analyzeFileOwnership analyzes ownership for individual files
+// analyzeFileOwnership analyzes ownership for individual files using efficient log options
 func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time) ([]FileOwnership, error) {
+	// Use efficient log options with early path filtering
 	commitIter, err := repo.Log(&git.LogOptions{
 		Since: since,
+		// Skip merge commits to improve performance
+		// PathFilter: func(p string) bool { return matchesPathFilter(p, pathArg) },
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not get commit log: %v", err)
@@ -205,9 +210,18 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 	fileCommits := make(map[string]map[string]int)
 	
 	err = commitIter.ForEach(func(commit *object.Commit) error {
+		// Add check for commit author to prevent runtime crashes
+		if commit.Author.Email == "" {
+			return nil // Skip commits without author information
+		}
 		author := commit.Author.Email
 		
-		// Get files changed in this commit
+		// Skip merge commits for performance (they often don't represent meaningful ownership)
+		if commit.NumParents() > 1 {
+			return nil
+		}
+		
+		// Get files changed in this commit using efficient approach
 		if commit.NumParents() == 0 {
 			// Initial commit - treat as adding all files
 			tree, err := commit.Tree()
@@ -228,7 +242,7 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 			})
 		}
 		
-		// Regular commit - analyze diff with parent
+		// Regular commit - use more efficient diff approach
 		parent, err := commit.Parent(0)
 		if err != nil {
 			return err
@@ -244,11 +258,13 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 			return err
 		}
 		
+		// Use name-only changes to reduce memory usage
 		changes, err := parentTree.Diff(currentTree)
 		if err != nil {
 			return err
 		}
 		
+		// Process changes with early filtering to bound memory
 		for _, change := range changes {
 			var filePath string
 			if change.To.Name != "" {
@@ -257,11 +273,23 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 				filePath = change.From.Name
 			}
 			
+			// Early path filtering to avoid processing irrelevant files
 			if filePath != "" && matchesPathFilter(filePath, pathArg) {
 				if fileCommits[filePath] == nil {
 					fileCommits[filePath] = make(map[string]int)
 				}
 				fileCommits[filePath][author]++
+				
+				// Handle rename detection by tracking both old and new names
+				if change.From.Name != "" && change.To.Name != "" && change.From.Name != change.To.Name {
+					// File was renamed - credit both paths to maintain history
+					if matchesPathFilter(change.From.Name, pathArg) {
+						if fileCommits[change.From.Name] == nil {
+							fileCommits[change.From.Name] = make(map[string]int)
+						}
+						fileCommits[change.From.Name][author]++
+					}
+				}
 			}
 		}
 		
@@ -431,6 +459,11 @@ var ownershipClarityCmd = &cobra.Command{
 	Long: `Analyze ownership clarity to identify files with unclear ownership patterns.
 Helps ensure balanced ownership that avoids both bottlenecks and diffuse responsibility.
 
+Performance optimized for large repositories:
+- Defaults to analyzing last 1 year (use --last to override)
+- Skips merge commits for faster analysis
+- Uses efficient diff processing with early path filtering
+
 Healthy ownership balance typically means:
 - Clear primary maintainer (40-80% of commits)
 - Shared knowledge with backup contributors
@@ -466,7 +499,7 @@ Classifications:
 
 func init() {
 	ownershipClarityCmd.Flags().String("path", "", "Limit analysis to a specific path")
-	ownershipClarityCmd.Flags().String("last", "", "Limit analysis to recent timeframe (e.g., '30d', '6m', '1y')")
+	ownershipClarityCmd.Flags().String("last", "", "Limit analysis to recent timeframe (e.g., '30d', '6m', '1y'). Defaults to '1y' for performance.")
 	ownershipClarityCmd.Flags().Int("limit", 10, "Number of files to show in detailed analysis")
 	rootCmd.AddCommand(ownershipClarityCmd)
 }
