@@ -250,6 +250,36 @@ Shows bus factor analysis for the `src/` directory over the last 6 months.
 
 ---
 
+Here are some examples of how to use the **gitallica** CLI to analyze test-to-code ratio:
+
+```bash
+gitallica test-ratio
+```
+Analyzes the ratio of test code to source code across the entire repository.
+
+```bash
+gitallica test-ratio --path src/
+```
+Analyzes test-to-code ratio for files in the `src/` directory only.
+
+**Research-Based Analysis:**
+- **Clean Code Principles**: Based on Robert C. Martin's Clean Code guidelines for test coverage
+- **Comprehensive Detection**: Identifies test files across multiple languages and frameworks
+- **Actionable Insights**: Provides specific recommendations and line count targets
+- **Cross-Language Support**: Supports Go, JavaScript/TypeScript, Python, Ruby, Java, C#, and more
+
+**Ratio Classifications:**
+- **Excellent**: 1:1 to 2:1 ratio (ideal coverage with reasonable overhead)
+- **Healthy**: 1:1 ratio (balanced test and source code)
+- **Caution**: 0.75:1 to 1:1 ratio (adequate but could be improved)
+- **Warning**: 0.5:1 to 0.75:1 ratio (insufficient test coverage)
+- **Critical**: <0.5:1 ratio or no tests (urgent attention needed)
+
+**Available flags:**
+- `--path` : Limit analysis to a specific directory or path within the repository.
+
+---
+
 ## Guiding Metrics & Research-Based Benchmarks  
 
 Here are the **15 greatest hits**—each paired with rationale and a relevant quote from respected authors.  
