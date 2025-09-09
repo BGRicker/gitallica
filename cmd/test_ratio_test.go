@@ -394,20 +394,12 @@ func TestFileTypeClassification(t *testing.T) {
 
 func TestTestRatioThresholds(t *testing.T) {
 	// Test that our constants match expected research-backed values
-	if testRatioHealthyThreshold != 1.0 {
-		t.Errorf("Expected healthy test ratio threshold to be 1.0, got %f", testRatioHealthyThreshold)
+	if testRatioTargetThreshold != 1.0 {
+		t.Errorf("Expected target test ratio threshold to be 1.0, got %f", testRatioTargetThreshold)
 	}
 	
-	if testRatioExcellentThreshold != 2.0 {
-		t.Errorf("Expected excellent test ratio threshold to be 2.0, got %f", testRatioExcellentThreshold)
-	}
-	
-	if testRatioCautionThreshold != 0.75 {
-		t.Errorf("Expected caution test ratio threshold to be 0.75, got %f", testRatioCautionThreshold)
-	}
-	
-	if testRatioWarningThreshold != 0.5 {
-		t.Errorf("Expected warning test ratio threshold to be 0.5, got %f", testRatioWarningThreshold)
+	if testRatioMinimumThreshold != 0.5 {
+		t.Errorf("Expected minimum test ratio threshold to be 0.5, got %f", testRatioMinimumThreshold)
 	}
 }
 

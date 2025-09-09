@@ -19,6 +19,9 @@
 ## Quick Start
 
 ```bash
+# Run comprehensive health check (recommended first step)
+gitallica health-check --last 30d
+
 # Analyze code churn patterns
 gitallica churn --last 30d
 
@@ -44,6 +47,7 @@ go build -o gitallica .
 
 | Command | Description | Research Basis |
 |---------|-------------|----------------|
+| `health-check` | Comprehensive health check and issue identification | All metrics combined |
 | `churn` | Additions vs. deletions ratio | Microsoft Research |
 | `survival` | Code survival rate analysis | Spinellis et al. |
 | `churn-files` | High-churn files identification | Nagappan & Ball |
@@ -65,6 +69,9 @@ go build -o gitallica .
 
 ### Basic Analysis
 ```bash
+# Run comprehensive health check (recommended first step)
+gitallica health-check --last 30d
+
 # Analyze entire repository
 gitallica churn
 

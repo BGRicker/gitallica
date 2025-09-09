@@ -290,20 +290,12 @@ func TestDeadZoneThresholds(t *testing.T) {
 		t.Errorf("Expected dead zone threshold to be 12 months, got %d", deadZoneThresholdMonths)
 	}
 	
-	if lowRiskThresholdMonths != 12 {
-		t.Errorf("Expected low risk threshold to be 12 months, got %d", lowRiskThresholdMonths)
+	if deadZoneLowRiskThresholdMonths != 24 {
+		t.Errorf("Expected low risk threshold to be 24 months, got %d", deadZoneLowRiskThresholdMonths)
 	}
 	
-	if mediumRiskThresholdMonths != 18 {
-		t.Errorf("Expected medium risk threshold to be 18 months, got %d", mediumRiskThresholdMonths)
-	}
-	
-	if highRiskThresholdMonths != 24 {
-		t.Errorf("Expected high risk threshold to be 24 months, got %d", highRiskThresholdMonths)
-	}
-	
-	if criticalRiskThresholdMonths != 36 {
-		t.Errorf("Expected critical risk threshold to be 36 months, got %d", criticalRiskThresholdMonths)
+	if deadZoneHighRiskThresholdMonths != 36 {
+		t.Errorf("Expected high risk threshold to be 36 months, got %d", deadZoneHighRiskThresholdMonths)
 	}
 }
 

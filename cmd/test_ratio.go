@@ -276,8 +276,8 @@ func printTestRatioStats(stats *TestRatioStats, pathArg string) {
 	fmt.Printf("  • Minimum acceptable: 0.75:1\n")
 	fmt.Printf("  • Current ratio: %.2f:1\n", stats.TestRatio)
 	
-	if stats.TestRatio < testRatioHealthyThreshold && stats.SourceLOC > 0 {
-		needed := int(float64(stats.SourceLOC)*testRatioHealthyThreshold) - stats.TestLOC
+	if stats.TestRatio < testRatioTargetThreshold && stats.SourceLOC > 0 {
+		needed := int(float64(stats.SourceLOC)*testRatioTargetThreshold) - stats.TestLOC
 		if needed > 0 {
 			fmt.Printf("  • Suggested: Add ~%d lines of test code to reach 1:1 ratio\n", needed)
 		}
