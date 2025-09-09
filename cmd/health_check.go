@@ -118,9 +118,13 @@ func analyzeChurnHealth(repo *git.Repository, since time.Time, pathArg string) [
 		if !since.IsZero() && c.Committer.When.Before(since) {
 			return nil
 		}
-		a, d := processCommitDiffs(c, pathArg)
-		additions += a
-		deletions += d
+		// Use the existing function from the codebase
+		additions_c, deletions_c, _, err := processCommitForSize(c, pathArg)
+		if err != nil {
+			return nil // Skip commits with errors
+		}
+		additions += additions_c
+		deletions += deletions_c
 		return nil
 	})
 	if err != nil {
@@ -240,22 +244,46 @@ func analyzeBusFactorHealth(repo *git.Repository, since time.Time, pathArg strin
 	return issues
 }
 
+// getRealProjectAge determines the actual age of the repository from its first commit
+func getRealProjectAge(repo *git.Repository) (time.Duration, error) {
+	ref, err := repo.Head()
+	if err != nil {
+		return 0, err
+	}
+	
+	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	if err != nil {
+		return 0, err
+	}
+	defer cIter.Close()
+	
+	var firstCommitTime time.Time
+	err = cIter.ForEach(func(c *object.Commit) error {
+		firstCommitTime = c.Committer.When
+		return nil // Continue to get the last (oldest) commit
+	})
+	
+	if err != nil {
+		return 0, err
+	}
+	
+	return time.Since(firstCommitTime), nil
+}
+
 // analyzeDeadZonesHealth checks for stale code
 func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathArg string) []HealthIssue {
 	var issues []HealthIssue
 	
+	// Skip dead zone analysis for very new projects (less than 3 months old)
+	// This prevents false positives for newly created files
+	projectAge, err := getRealProjectAge(repo)
+	if err == nil && projectAge < 90*24*time.Hour { // Less than 90 days
+		return issues // Skip dead zone analysis for new projects
+	}
+	
 	analysis, err := analyzeDeadZones(repo, since, pathArg)
 	if err != nil {
 		return issues
-	}
-	
-	// Skip dead zone analysis for very new projects (less than 3 months old)
-	// This prevents false positives for newly created files
-	if !since.IsZero() {
-		projectAge := time.Since(since)
-		if projectAge < 90*24*time.Hour { // Less than 90 days
-			return issues // Skip dead zone analysis for new projects
-		}
 	}
 	
 	if analysis.DeadZoneCount > 0 {
@@ -349,16 +377,36 @@ func generateHealthSummary(report *HealthReport) string {
 	var summary strings.Builder
 	
 	if report.CriticalIssues > 0 {
-		summary.WriteString(fmt.Sprintf("🚨 %d critical issues require immediate attention. ", report.CriticalIssues))
+		issueWord := "issue"
+		requireWord := "requires"
+		if report.CriticalIssues != 1 {
+			issueWord = "issues"
+			requireWord = "require"
+		}
+		summary.WriteString(fmt.Sprintf("🚨 %d critical %s %s immediate attention. ", report.CriticalIssues, issueWord, requireWord))
 	}
 	if report.HighIssues > 0 {
-		summary.WriteString(fmt.Sprintf("⚠️ %d high-priority issues should be addressed soon. ", report.HighIssues))
+		issueWord := "issue"
+		if report.HighIssues != 1 {
+			issueWord = "issues"
+		}
+		summary.WriteString(fmt.Sprintf("⚠️ %d high-priority %s should be addressed soon. ", report.HighIssues, issueWord))
 	}
 	if report.MediumIssues > 0 {
-		summary.WriteString(fmt.Sprintf("📋 %d medium-priority issues need attention. ", report.MediumIssues))
+		issueWord := "issue"
+		needWord := "needs"
+		if report.MediumIssues != 1 {
+			issueWord = "issues"
+			needWord = "need"
+		}
+		summary.WriteString(fmt.Sprintf("📋 %d medium-priority %s %s attention. ", report.MediumIssues, issueWord, needWord))
 	}
 	if report.LowIssues > 0 {
-		summary.WriteString(fmt.Sprintf("💡 %d low-priority issues can be addressed when convenient.", report.LowIssues))
+		issueWord := "issue"
+		if report.LowIssues != 1 {
+			issueWord = "issues"
+		}
+		summary.WriteString(fmt.Sprintf("💡 %d low-priority %s can be addressed when convenient.", report.LowIssues, issueWord))
 	}
 	
 	return summary.String()

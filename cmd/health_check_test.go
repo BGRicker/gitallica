@@ -82,7 +82,7 @@ func TestGenerateHealthSummary(t *testing.T) {
 				MediumIssues:   1,
 				LowIssues:      1,
 			},
-			expected: "🚨 1 critical issues require immediate attention. ⚠️ 2 high-priority issues should be addressed soon. 📋 1 medium-priority issues need attention. 💡 1 low-priority issues can be addressed when convenient.",
+			expected: "🚨 1 critical issue requires immediate attention. ⚠️ 2 high-priority issues should be addressed soon. 📋 1 medium-priority issue needs attention. 💡 1 low-priority issue can be addressed when convenient.",
 		},
 	}
 
