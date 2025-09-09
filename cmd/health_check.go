@@ -33,6 +33,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// newProjectThreshold defines the age below which a project is considered "new"
+	// and dead zone analysis should be skipped to prevent false positives
+	newProjectThreshold = 90 * 24 * time.Hour // 90 days
+)
+
 // HealthIssue represents a single health issue found in the codebase
 type HealthIssue struct {
 	Category    string  // e.g., "Code Quality", "Performance", "Risk"
@@ -259,8 +265,10 @@ func getRealProjectAge(repo *git.Repository) (time.Duration, error) {
 	
 	var firstCommitTime time.Time
 	err = cIter.ForEach(func(c *object.Commit) error {
-		firstCommitTime = c.Committer.When
-		return nil // Continue to get the last (oldest) commit
+		if firstCommitTime.IsZero() || c.Committer.When.Before(firstCommitTime) {
+			firstCommitTime = c.Committer.When
+		}
+		return nil
 	})
 	
 	if err != nil {
@@ -277,7 +285,7 @@ func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathArg strin
 	// Skip dead zone analysis for very new projects (less than 3 months old)
 	// This prevents false positives for newly created files
 	projectAge, err := getRealProjectAge(repo)
-	if err == nil && projectAge < 90*24*time.Hour { // Less than 90 days
+	if err == nil && projectAge < newProjectThreshold {
 		return issues // Skip dead zone analysis for new projects
 	}
 	
