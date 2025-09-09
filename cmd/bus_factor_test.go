@@ -230,16 +230,12 @@ func TestBusFactorEdgeCases(t *testing.T) {
 
 func TestBusFactorThresholds(t *testing.T) {
 	// Test that our constants match expected research-backed values
-	if healthyBusFactorThreshold != 4 {
-		t.Errorf("Expected healthy bus factor threshold to be 4, got %d", healthyBusFactorThreshold)
-	}
-	
-	if mediumBusFactorThreshold != 3 {
-		t.Errorf("Expected medium bus factor threshold to be 3, got %d", mediumBusFactorThreshold)
-	}
-	
 	if criticalBusFactorThreshold != 1 {
 		t.Errorf("Expected critical bus factor threshold to be 1, got %d", criticalBusFactorThreshold)
+	}
+	
+	if lowBusFactorThreshold != 2 {
+		t.Errorf("Expected low bus factor threshold to be 2, got %d", lowBusFactorThreshold)
 	}
 }
 

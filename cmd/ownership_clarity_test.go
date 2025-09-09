@@ -254,21 +254,17 @@ func TestClassifyOwnershipClarity(t *testing.T) {
 
 // TestOwnershipClarityThresholds tests the threshold constants
 func TestOwnershipClarityThresholds(t *testing.T) {
-	// Test that our constants are reasonable
-	if ownershipHealthyMinThreshold < 0.4 || ownershipHealthyMinThreshold > 0.6 {
-		t.Errorf("ownershipHealthyMinThreshold should be between 0.4 and 0.6, got %v", ownershipHealthyMinThreshold)
+	// Test that our constants match expected research-backed values
+	if ownershipStrongThreshold != 0.80 {
+		t.Errorf("Expected strong ownership threshold to be 0.80, got %f", ownershipStrongThreshold)
 	}
 	
-	if ownershipConcentratedThreshold < 0.7 || ownershipConcentratedThreshold > 0.9 {
-		t.Errorf("ownershipConcentratedThreshold should be between 0.7 and 0.9, got %v", ownershipConcentratedThreshold)
+	if ownershipRiskThreshold != 9 {
+		t.Errorf("Expected risk threshold to be 9, got %d", ownershipRiskThreshold)
 	}
 	
-	if ownershipCriticalThreshold < 0.1 || ownershipCriticalThreshold > 0.3 {
-		t.Errorf("ownershipCriticalThreshold should be between 0.1 and 0.3, got %v", ownershipCriticalThreshold)
-	}
-	
-	if ownershipMinContributorsForAnalysis < 3 || ownershipMinContributorsForAnalysis > 15 {
-		t.Errorf("ownershipMinContributorsForAnalysis should be between 3 and 15, got %v", ownershipMinContributorsForAnalysis)
+	if ownershipMinContributorsForAnalysis != 3 {
+		t.Errorf("Expected min contributors for analysis to be 3, got %d", ownershipMinContributorsForAnalysis)
 	}
 }
 
