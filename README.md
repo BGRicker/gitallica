@@ -87,8 +87,9 @@ gitallica bus-factor --path src/
 # Combined filters
 gitallica churn --last 90d --path lib/
 
-# Multiple paths at once
+# Multiple paths at once (NEW!)
 gitallica churn-files --path src/ --path lib/ --path app/
+gitallica bus-factor --path cmd/ --path main.go --path README.md
 
 # Detailed output
 gitallica change-lead-time --limit 20 --method tag
@@ -111,13 +112,32 @@ bus-factor:
     - "src/"
     - "lib/"
 
+test-ratio:
+  paths:
+    - "src/"
+    - "tests/"
+
 # Global settings
 defaults:
   last: "6m"  # Default time window
   limit: 20  # Default number of results to show
 ```
 
-Command-line flags always override configuration file settings.
+**Configuration Priority:**
+1. Command-line flags (highest priority)
+2. Configuration file settings
+3. Default values (lowest priority)
+
+**Setup:**
+```bash
+# Copy example config to your home directory
+cp .gitallica.yaml.example ~/.gitallica.yaml
+
+# Customize your paths and settings
+# Then run commands without specifying paths
+gitallica churn  # Uses your config
+gitallica churn --path README.md  # Overrides config
+```
 
 ## Documentation
 
