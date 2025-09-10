@@ -252,7 +252,7 @@ func calculateCommitChanges(commit *object.Commit, pathArg string) (int, int, er
 		}
 		
 		err = tree.Files().ForEach(func(file *object.File) error {
-			if matchesPathFilter(file.Name, pathArg) {
+			if matchesSinglePathFilter(file.Name, pathArg) {
 				filesChanged++
 				// Count lines in initial files
 				contents, err := file.Contents()
@@ -293,7 +293,7 @@ func calculateCommitChanges(commit *object.Commit, pathArg string) (int, int, er
 	
 	// Filter stats to only include files matching the path filter
 	for _, fileStat := range stats {
-		if matchesPathFilter(fileStat.Name, pathArg) {
+		if matchesSinglePathFilter(fileStat.Name, pathArg) {
 			fileSet[fileStat.Name] = true
 			linesChanged += fileStat.Addition + fileStat.Deletion
 		}

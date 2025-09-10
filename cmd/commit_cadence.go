@@ -544,7 +544,7 @@ func commitAffectsPath(commit *object.Commit, pathArg string) (bool, error) {
 		
 		found := false
 		err = tree.Files().ForEach(func(file *object.File) error {
-			if matchesPathFilter(file.Name, pathArg) {
+			if matchesSinglePathFilter(file.Name, pathArg) {
 				found = true
 				// Note: could use early exit here, but for simplicity we let the loop complete
 			}
@@ -578,7 +578,7 @@ func commitAffectsPath(commit *object.Commit, pathArg string) (bool, error) {
 	// Early return on first match for better performance
 	stats := patch.Stats()
 	for _, fileStat := range stats {
-		if matchesPathFilter(fileStat.Name, pathArg) {
+		if matchesSinglePathFilter(fileStat.Name, pathArg) {
 			return true, nil
 		}
 	}

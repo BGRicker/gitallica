@@ -125,29 +125,6 @@ func isGenericEmail(email string) bool {
 	return false
 }
 
-// matchesPathFilter checks if a file path matches the given filter using proper path handling
-func matchesPathFilter(filePath, pathFilter string) bool {
-	if pathFilter == "" {
-		return true
-	}
-	
-	// Normalize paths for cross-platform compatibility
-	// Convert backslashes to forward slashes first for Windows compatibility
-	cleanFilePath := strings.ReplaceAll(filePath, "\\", "/")
-	cleanPathFilter := strings.ReplaceAll(pathFilter, "\\", "/")
-	
-	// Clean the paths
-	cleanFilePath = filepath.ToSlash(filepath.Clean(cleanFilePath))
-	cleanPathFilter = filepath.ToSlash(filepath.Clean(cleanPathFilter))
-	
-	// Exact match
-	if cleanFilePath == cleanPathFilter {
-		return true
-	}
-	
-	// Check if file is under the specified directory (with proper directory boundary)
-	return strings.HasPrefix(cleanFilePath, cleanPathFilter+"/")
-}
 
 // calculateBusFactor calculates the bus factor for a directory based on author contributions
 func calculateBusFactor(authorCommits map[string]int) int {
@@ -409,7 +386,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 	
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if !matchesPathFilter(f.Name, pathArg) {
+		if !matchesSinglePathFilter(f.Name, pathArg) {
 			return nil
 		}
 		
@@ -452,7 +429,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 	// Count lines by author per directory
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if !matchesPathFilter(f.Name, pathArg) {
+		if !matchesSinglePathFilter(f.Name, pathArg) {
 			return nil
 		}
 		

@@ -154,7 +154,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 			}
 			
 			err = tree.Files().ForEach(func(file *object.File) error {
-				if matchesPathFilter(file.Name, pathArg) {
+				if matchesSinglePathFilter(file.Name, pathArg) {
 					filesChanged = append(filesChanged, file.Name)
 				}
 				return nil
@@ -192,7 +192,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 					filePath = change.From.Name
 				}
 				
-				if filePath != "" && matchesPathFilter(filePath, pathArg) {
+				if filePath != "" && matchesSinglePathFilter(filePath, pathArg) {
 					filesChanged = append(filesChanged, filePath)
 				}
 			}

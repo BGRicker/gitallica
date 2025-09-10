@@ -23,9 +23,13 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // parseDurationArg parses a string like "7d", "2m", "1y" and returns a cutoff time.Time from now.
@@ -99,4 +103,63 @@ func applyMergeCommitAdjustment(additions, deletions, parentCount int) (int, int
 	adjustedDeletions := (deletions + parentCount - 1) / parentCount
 	
 	return adjustedAdditions, adjustedDeletions
+}
+
+// matchesPathFilter checks if a file path matches any of the given filters using proper path handling
+func matchesPathFilter(filePath string, pathFilters []string) bool {
+	if len(pathFilters) == 0 {
+		return true
+	}
+	
+	// Normalize paths for cross-platform compatibility
+	// Convert backslashes to forward slashes first for Windows compatibility
+	cleanFilePath := strings.ReplaceAll(filePath, "\\", "/")
+	cleanFilePath = filepath.ToSlash(filepath.Clean(cleanFilePath))
+	
+	for _, pathFilter := range pathFilters {
+		if pathFilter == "" {
+			continue
+		}
+		
+		cleanPathFilter := strings.ReplaceAll(pathFilter, "\\", "/")
+		cleanPathFilter = filepath.ToSlash(filepath.Clean(cleanPathFilter))
+		
+		// Exact match
+		if cleanFilePath == cleanPathFilter {
+			return true
+		}
+		
+		// Check if file is under the specified directory (with proper directory boundary)
+		if strings.HasPrefix(cleanFilePath, cleanPathFilter+"/") {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// matchesSinglePathFilter provides backward compatibility for single path filtering
+func matchesSinglePathFilter(filePath, pathFilter string) bool {
+	if pathFilter == "" {
+		return true
+	}
+	return matchesPathFilter(filePath, []string{pathFilter})
+}
+
+// getConfigPaths returns configured paths from viper config, falling back to command line args
+func getConfigPaths(cmd *cobra.Command, configKey string) []string {
+	// First try to get from command line flags
+	pathArgs, _ := cmd.Flags().GetStringSlice("path")
+	if len(pathArgs) > 0 {
+		return pathArgs
+	}
+	
+	// Fall back to config file
+	if viper.IsSet(configKey) {
+		if paths := viper.GetStringSlice(configKey); len(paths) > 0 {
+			return paths
+		}
+	}
+	
+	return []string{}
 }

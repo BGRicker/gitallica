@@ -87,9 +87,37 @@ gitallica bus-factor --path src/
 # Combined filters
 gitallica churn --last 90d --path lib/
 
+# Multiple paths at once
+gitallica churn-files --path src/ --path lib/ --path app/
+
 # Detailed output
 gitallica change-lead-time --limit 20 --method tag
 ```
+
+### Configuration File
+
+Create a `.gitallica.yaml` file to avoid repeating common options:
+
+```yaml
+# Default paths to analyze for each command
+churn:
+  paths:
+    - "src/"
+    - "lib/"
+    - "app/"
+
+bus-factor:
+  paths:
+    - "src/"
+    - "lib/"
+
+# Global settings
+defaults:
+  last: "6m"  # Default time window
+  limit: 20  # Default number of results to show
+```
+
+Command-line flags always override configuration file settings.
 
 ## Documentation
 

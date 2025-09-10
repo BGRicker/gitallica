@@ -189,7 +189,7 @@ func analyzeTestRatio(repo *git.Repository, pathArg string) (*TestRatioStats, er
 	
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if !matchesPathFilter(f.Name, pathArg) {
+		if !matchesSinglePathFilter(f.Name, pathArg) {
 			return nil
 		}
 		

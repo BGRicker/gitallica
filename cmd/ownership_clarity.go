@@ -202,7 +202,7 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 			}
 			
 			return tree.Files().ForEach(func(file *object.File) error {
-				if !matchesPathFilter(file.Name, pathArg) {
+				if !matchesSinglePathFilter(file.Name, pathArg) {
 					return nil
 				}
 				
@@ -246,7 +246,7 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 			}
 			
 			// Early path filtering to avoid processing irrelevant files
-			if filePath != "" && matchesPathFilter(filePath, pathArg) {
+			if filePath != "" && matchesSinglePathFilter(filePath, pathArg) {
 				if fileCommits[filePath] == nil {
 					fileCommits[filePath] = make(map[string]int)
 				}
@@ -255,7 +255,7 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 				// Handle rename detection by tracking both old and new names
 				if change.From.Name != "" && change.To.Name != "" && change.From.Name != change.To.Name {
 					// File was renamed - credit both paths to maintain history
-					if matchesPathFilter(change.From.Name, pathArg) {
+					if matchesSinglePathFilter(change.From.Name, pathArg) {
 						if fileCommits[change.From.Name] == nil {
 							fileCommits[change.From.Name] = make(map[string]int)
 						}

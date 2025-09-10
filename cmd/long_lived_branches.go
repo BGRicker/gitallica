@@ -397,7 +397,7 @@ func branchAffectsPath(repo *git.Repository, branchHash, mainHash plumbing.Hash,
 
 	found := false
 	err = tree.Files().ForEach(func(file *object.File) error {
-		if matchesPathFilter(file.Name, pathArg) {
+		if matchesSinglePathFilter(file.Name, pathArg) {
 			found = true
 		}
 		return nil
