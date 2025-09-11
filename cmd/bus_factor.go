@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/spf13/cobra"
@@ -468,6 +469,46 @@ func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommi
 	return lastAuthor, found
 }
 
+// buildFileAuthorMap efficiently builds a map of file authors using a single git traversal
+func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathArg string, fileAuthors map[string]string) error {
+	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	if err != nil {
+		return fmt.Errorf("could not get commits: %v", err)
+	}
+	defer cIter.Close()
+	
+	err = cIter.ForEach(func(c *object.Commit) error {
+		if !since.IsZero() && c.Committer.When.Before(since) {
+			return storer.ErrStop
+		}
+		
+		tree, err := c.Tree()
+		if err != nil {
+			return nil
+		}
+		
+		// Look at all files in this commit to find their most recent author
+		err = tree.Files().ForEach(func(f *object.File) error {
+			if pathArg != "" && !matchesPathFilter(f.Name, pathArg) {
+				return nil
+			}
+			
+			// Update author for this file (only if not already set, since we iterate newest to oldest)
+			if _, exists := fileAuthors[f.Name]; !exists {
+				fileAuthors[f.Name] = normalizeAuthorName(c.Author.Name, c.Author.Email)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		
+		return nil
+	})
+	
+	return err
+}
+
 // analyzeBusFactor performs bus factor analysis using an efficient commit-based approach
 // This provides accurate knowledge measurement while maintaining good performance by
 // analyzing file authorship through commit history rather than line-by-line blame.
@@ -491,9 +532,14 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
 	
-	// Get all files in current tree and initialize directory structure
+	// Build comprehensive file author map efficiently
 	fileAuthors := make(map[string]string) // file -> most recent author
+	err = buildFileAuthorMap(repo, ref, since, pathArg, fileAuthors)
+	if err != nil {
+		return nil, fmt.Errorf("error building file author map: %v", err)
+	}
 	
+	// Initialize directory structure
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
 		if !matchesPathFilter(f.Name, pathArg) {
@@ -518,17 +564,6 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		if directoryOwnership[dir] == nil {
 			directoryOwnership[dir] = make(map[string]int)
 		}
-		
-		// Find the most recent author of this file
-		author, err := findFileAuthor(repo, f.Name, headCommit, since)
-		if err != nil {
-			// If we can't determine the author, skip this file
-			// This can happen for files that were never committed or have no git history
-			log.Printf("Warning: failed to get author for %s: %v", f.Name, err)
-			return nil
-		}
-		
-		fileAuthors[f.Name] = normalizeAuthorName(author.Name, author.Email)
 		
 		return nil
 	})
@@ -561,7 +596,8 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		// Get file author
 		author, exists := fileAuthors[f.Name]
 		if !exists {
-			return nil
+			// Use a reasonable fallback for files without git history
+			author = "unknown"
 		}
 		
 		// Count lines in this file

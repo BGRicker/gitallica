@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/spf13/cobra"
@@ -110,6 +111,46 @@ type fileChangeHandler func(c *object.Commit) error
 
 // findFileInCommitHistory searches git history for a specific file and calls handler when found
 func findFileInCommitHistory(repo *git.Repository, fileName string, handler fileChangeHandler) error {
+	// Use the new time-window aware function with no time restriction
+	return findFileInCommitHistoryWithTimeWindow(repo, fileName, handler, time.Time{})
+}
+
+// getLastModifiedFromGitHistory gets the last modification time for a file from full git history
+func getLastModifiedFromGitHistory(repo *git.Repository, fileName string) (time.Time, bool, error) {
+	var lastCommitTime time.Time
+	var found bool
+	
+	// First try to find the file in recent history (within reasonable time window)
+	err := findFileInCommitHistoryWithTimeWindow(repo, fileName, func(c *object.Commit) error {
+		lastCommitTime = c.Committer.When
+		found = true
+		return storer.ErrStop
+	}, time.Now().AddDate(-2, 0, 0)) // Look back 2 years
+	
+	if err != nil && err != storer.ErrStop {
+		return time.Time{}, false, err
+	}
+	
+	if found {
+		return lastCommitTime, true, nil
+	}
+	
+	// If not found in recent history, try the entire git history
+	err = findFileInCommitHistoryWithTimeWindow(repo, fileName, func(c *object.Commit) error {
+		lastCommitTime = c.Committer.When
+		found = true
+		return storer.ErrStop
+	}, time.Time{}) // No time restriction
+	
+	if err != nil && err != storer.ErrStop {
+		return time.Time{}, false, err
+	}
+	
+	return lastCommitTime, found, nil
+}
+
+// findFileInCommitHistoryWithTimeWindow searches git history for a specific file with optional time window
+func findFileInCommitHistoryWithTimeWindow(repo *git.Repository, fileName string, handler fileChangeHandler, since time.Time) error {
 	ref, err := repo.Head()
 	if err != nil {
 		return err
@@ -122,6 +163,11 @@ func findFileInCommitHistory(repo *git.Repository, fileName string, handler file
 	defer cIter.Close()
 	
 	return cIter.ForEach(func(c *object.Commit) error {
+		// Apply time window filter if specified
+		if !since.IsZero() && c.Committer.When.Before(since) {
+			return storer.ErrStop
+		}
+		
 		// Handle merge commits by diffing against their first parent.
 		// This is a common strategy to identify changes introduced by a merge.
 		var parentTree *object.Tree
@@ -165,50 +211,11 @@ func findFileInCommitHistory(repo *git.Repository, fileName string, handler file
 	})
 }
 
-// getLastModifiedFromGitHistory gets the last modification time for a file from full git history
-func getLastModifiedFromGitHistory(repo *git.Repository, fileName string) (time.Time, bool, error) {
-	var lastCommitTime time.Time
-	var found bool
-	
-	err := findFileInCommitHistory(repo, fileName, func(c *object.Commit) error {
-		lastCommitTime = c.Committer.When
-		found = true
-		return storer.ErrStop
-	})
-	
-	if err != nil && err != storer.ErrStop {
-		return time.Time{}, false, err
-	}
-	
-	return lastCommitTime, found, nil
-}
-
-// sortDeadZonesByAge sorts dead zone files by age (oldest first)
-func sortDeadZonesByAge(files []DeadZoneFileStats) []DeadZoneFileStats {
-	sorted := make([]DeadZoneFileStats, len(files))
-	copy(sorted, files)
-	
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].AgeInMonths > sorted[j].AgeInMonths
-	})
-	
-	return sorted
-}
-
-// analyzeDeadZones performs dead zone analysis on the repository
-func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*DeadZoneAnalysis, error) {
-	ref, err := repo.Head()
-	if err != nil {
-		return nil, fmt.Errorf("could not get HEAD: %v", err)
-	}
-	
-	// Track the last modification time for each file
-	fileLastModified := make(map[string]time.Time)
-	
-	// Iterate through all commits to find last modification times
+// buildFileModificationMap efficiently builds a map of file modification times
+func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathArg string, fileLastModified map[string]time.Time) error {
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
-		return nil, fmt.Errorf("could not get commits: %v", err)
+		return fmt.Errorf("could not get commits: %v", err)
 	}
 	defer cIter.Close()
 	
@@ -278,6 +285,34 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*D
 		return nil
 	})
 	
+	return err
+}
+
+// sortDeadZonesByAge sorts dead zone files by age (oldest first)
+func sortDeadZonesByAge(files []DeadZoneFileStats) []DeadZoneFileStats {
+	sorted := make([]DeadZoneFileStats, len(files))
+	copy(sorted, files)
+	
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].AgeInMonths > sorted[j].AgeInMonths
+	})
+	
+	return sorted
+}
+
+// analyzeDeadZones performs dead zone analysis on the repository
+func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*DeadZoneAnalysis, error) {
+	ref, err := repo.Head()
+	if err != nil {
+		return nil, fmt.Errorf("could not get HEAD: %v", err)
+	}
+	
+	// Track the last modification time for each file
+	fileLastModified := make(map[string]time.Time)
+	
+	// Build comprehensive file modification map efficiently
+	err = buildFileModificationMap(repo, ref, since, pathArg, fileLastModified)
+	
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
 	}
@@ -316,18 +351,10 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*D
 		// Get last modified time for this file
 		lastModified, exists := fileLastModified[f.Name]
 		if !exists {
-			// File exists but wasn't modified in the analysis window - get last modification from full Git history
-			var found bool
-			lastModified, found, err = getLastModifiedFromGitHistory(repo, f.Name)
-			if err != nil {
-				log.Printf("Warning: failed to get git history for %s: %v", f.Name, err)
-				// Use a reasonable fallback - 3 years ago to indicate old but not infinitely old
-				lastModified = time.Now().AddDate(-3, 0, 0)
-			} else if !found {
-				log.Printf("Warning: no git history found for %s, treating as old file", f.Name)
-				// Use a reasonable fallback - 3 years ago to indicate old but not infinitely old
-				lastModified = time.Now().AddDate(-3, 0, 0)
-			}
+			// File exists but wasn't modified in the analysis window
+			// Use a reasonable fallback - assume it's old but not infinitely old
+			// This avoids expensive individual git history lookups for every file
+			lastModified = time.Now().AddDate(-2, 0, 0) // Assume 2 years old
 		}
 		
 		ageInMonths := calculateFileAge(lastModified, now)
