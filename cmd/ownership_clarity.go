@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -124,7 +125,7 @@ func classifyOwnershipClarity(topOwnership float64, totalContributors int) (stri
 }
 
 // analyzeOwnershipClarity analyzes ownership clarity across repository files
-func analyzeOwnershipClarity(repo *git.Repository, pathArg string, lastArg string) (*OwnershipClarityStats, error) {
+func analyzeOwnershipClarity(repo *git.Repository, pathFilters []string, lastArg string) (*OwnershipClarityStats, error) {
 	var since *time.Time
 	// Set a sensible default time window to cap resource usage
 	if lastArg == "" {
@@ -137,7 +138,7 @@ func analyzeOwnershipClarity(repo *git.Repository, pathArg string, lastArg strin
 	since = &sinceTime
 	
 	// Get file ownership data with efficient analysis
-	fileOwnership, err := analyzeFileOwnership(repo, pathArg, since)
+	fileOwnership, err := analyzeFileOwnership(repo, pathFilters, since)
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing file ownership: %v", err)
 	}
@@ -168,7 +169,7 @@ func analyzeOwnershipClarity(repo *git.Repository, pathArg string, lastArg strin
 }
 
 // analyzeFileOwnership analyzes ownership for individual files using efficient log options
-func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time) ([]FileOwnership, error) {
+func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *time.Time) ([]FileOwnership, error) {
 	// Use efficient log options with early path filtering
 	commitIter, err := repo.Log(&git.LogOptions{
 		Since: since,
@@ -202,7 +203,7 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 			}
 			
 			return tree.Files().ForEach(func(file *object.File) error {
-				if !matchesSinglePathFilter(file.Name, pathArg) {
+				if !matchesPathFilter(file.Name, pathFilters) {
 					return nil
 				}
 				
@@ -246,7 +247,7 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 			}
 			
 			// Early path filtering to avoid processing irrelevant files
-			if filePath != "" && matchesSinglePathFilter(filePath, pathArg) {
+			if filePath != "" && matchesPathFilter(filePath, pathFilters) {
 				if fileCommits[filePath] == nil {
 					fileCommits[filePath] = make(map[string]int)
 				}
@@ -255,7 +256,7 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 				// Handle rename detection by tracking both old and new names
 				if change.From.Name != "" && change.To.Name != "" && change.From.Name != change.To.Name {
 					// File was renamed - credit both paths to maintain history
-					if matchesSinglePathFilter(change.From.Name, pathArg) {
+					if matchesPathFilter(change.From.Name, pathFilters) {
 						if fileCommits[change.From.Name] == nil {
 							fileCommits[change.From.Name] = make(map[string]int)
 						}
@@ -324,10 +325,10 @@ func analyzeFileOwnership(repo *git.Repository, pathArg string, since *time.Time
 }
 
 // printOwnershipClarityStats prints the ownership clarity analysis results
-func printOwnershipClarityStats(stats *OwnershipClarityStats, pathArg string, limit int) {
+func printOwnershipClarityStats(stats *OwnershipClarityStats, pathFilters []string, limit int) {
 	fmt.Printf("Ownership Clarity Analysis\n")
-	if pathArg != "" {
-		fmt.Printf("Path filter: %s\n", pathArg)
+	if len(pathFilters) > 0 {
+		fmt.Printf("Path filters: %s\n", strings.Join(pathFilters, ", "))
 	}
 	fmt.Printf("Files analyzed: %d\n", stats.FilesAnalyzed)
 	fmt.Println()
@@ -451,7 +452,7 @@ Classifications:
 "With collective ownership, anyone can change any part of the code at any time." — Martin Fowler`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "ownership-clarity.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limit, _ := cmd.Flags().GetInt("limit")
 
@@ -460,17 +461,17 @@ Classifications:
 			log.Fatalf("Could not open repository: %v", err)
 		}
 
-		stats, err := analyzeOwnershipClarity(repo, pathArg, lastArg)
+		stats, err := analyzeOwnershipClarity(repo, pathFilters, lastArg)
 		if err != nil {
 			log.Fatalf("Error analyzing ownership clarity: %v", err)
 		}
 
-		printOwnershipClarityStats(stats, pathArg, limit)
+		printOwnershipClarityStats(stats, pathFilters, limit)
 	},
 }
 
 func init() {
-	ownershipClarityCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	ownershipClarityCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	ownershipClarityCmd.Flags().String("last", "", "Limit analysis to recent timeframe (e.g., '30d', '6m', '1y'). Defaults to '1y' for performance.")
 	ownershipClarityCmd.Flags().Int("limit", 10, "Number of files to show in detailed analysis")
 	rootCmd.AddCommand(ownershipClarityCmd)

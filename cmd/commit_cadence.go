@@ -75,11 +75,11 @@ The analysis groups commits by time periods and identifies:
 			return fmt.Errorf("could not open repository: %v", err)
 		}
 
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "commit-cadence.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		periodArg, _ := cmd.Flags().GetString("period")
 
-		stats, err := analyzeCommitCadence(repo, pathArg, lastArg, periodArg)
+		stats, err := analyzeCommitCadence(repo, pathFilters, lastArg, periodArg)
 		if err != nil {
 			return err
 		}
@@ -92,12 +92,12 @@ The analysis groups commits by time periods and identifies:
 func init() {
 	rootCmd.AddCommand(commitCadenceCmd)
 	commitCadenceCmd.Flags().String("last", "", "Specify the time window to analyze (e.g., 30d, 6m, 1y)")
-	commitCadenceCmd.Flags().String("path", "", "Limit analysis to a specific directory or path")
+	commitCadenceCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	commitCadenceCmd.Flags().String("period", "week", "Time period for grouping (day, week, month)")
 }
 
 // analyzeCommitCadence performs the main cadence analysis
-func analyzeCommitCadence(repo *git.Repository, pathArg string, lastArg string, periodArg string) (*CommitCadenceStats, error) {
+func analyzeCommitCadence(repo *git.Repository, pathFilters []string, lastArg string, periodArg string) (*CommitCadenceStats, error) {
 	var since *time.Time
 	if lastArg != "" {
 		sinceTime, err := parseDurationArg(lastArg)
@@ -130,8 +130,8 @@ func analyzeCommitCadence(repo *git.Repository, pathArg string, lastArg string, 
 		}
 		
 		// If path filtering is specified, check if commit affects the path
-		if pathArg != "" {
-			affectsPath, err := commitAffectsPath(commit, pathArg)
+		if len(pathFilters) > 0 {
+			affectsPath, err := commitAffectsPath(commit, pathFilters)
 			if err != nil {
 				return err
 			}
@@ -530,60 +530,6 @@ func classifySustainabilityLevel(avgCommits float64, spikeCount, dipCount int, t
 	
 	// Default to caution if unclear
 	return "Caution"
-}
-
-// commitAffectsPath checks if a commit affects the specified path
-// Optimized for performance with early returns and minimal diff computation
-func commitAffectsPath(commit *object.Commit, pathArg string) (bool, error) {
-	if commit.NumParents() == 0 {
-		// Initial commit - check if it has files in the path
-		tree, err := commit.Tree()
-		if err != nil {
-			return false, err
-		}
-		
-		found := false
-		err = tree.Files().ForEach(func(file *object.File) error {
-			if matchesSinglePathFilter(file.Name, pathArg) {
-				found = true
-				// Note: could use early exit here, but for simplicity we let the loop complete
-			}
-			return nil
-		})
-		return found, err
-	}
-	
-	// Regular commit - optimized diff check
-	parent, err := commit.Parent(0)
-	if err != nil {
-		return false, err
-	}
-	
-	parentTree, err := parent.Tree()
-	if err != nil {
-		return false, err
-	}
-	
-	currentTree, err := commit.Tree()
-	if err != nil {
-		return false, err
-	}
-	
-	// Use efficient patch computation (single patch, not per-file)
-	patch, err := parentTree.Patch(currentTree)
-	if err != nil {
-		return false, err
-	}
-	
-	// Early return on first match for better performance
-	stats := patch.Stats()
-	for _, fileStat := range stats {
-		if matchesSinglePathFilter(fileStat.Name, pathArg) {
-			return true, nil
-		}
-	}
-	
-	return false, nil
 }
 
 // printCommitCadenceStats displays the analysis results

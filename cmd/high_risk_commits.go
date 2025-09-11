@@ -73,11 +73,11 @@ architectural consideration.`,
 			return fmt.Errorf("could not open repository: %v", err)
 		}
 
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "high-risk-commits.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 
-		stats, err := analyzeHighRiskCommits(repo, pathArg, lastArg, limitArg)
+		stats, err := analyzeHighRiskCommits(repo, pathFilters, lastArg, limitArg)
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ architectural consideration.`,
 func init() {
 	rootCmd.AddCommand(highRiskCommitsCmd)
 	highRiskCommitsCmd.Flags().String("last", "", "Specify the time window to analyze (e.g., 30d, 6m, 1y)")
-	highRiskCommitsCmd.Flags().String("path", "", "Limit analysis to a specific directory or path")
+	highRiskCommitsCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	highRiskCommitsCmd.Flags().Int("limit", 10, "Number of risky commits to show in detailed output")
 }
 
@@ -171,7 +171,7 @@ func calculateHighRiskCommitsStats(commits []HighRiskCommit) *HighRiskCommitsSta
 }
 
 // analyzeHighRiskCommits performs the main analysis
-func analyzeHighRiskCommits(repo *git.Repository, pathArg string, lastArg string, limitArg int) (*HighRiskCommitsStats, error) {
+func analyzeHighRiskCommits(repo *git.Repository, pathFilters []string, lastArg string, limitArg int) (*HighRiskCommitsStats, error) {
 	var since *time.Time
 	if lastArg != "" {
 		sinceTime, err := parseDurationArg(lastArg)
@@ -204,7 +204,7 @@ func analyzeHighRiskCommits(repo *git.Repository, pathArg string, lastArg string
 		}
 		
 		// Calculate lines and files changed
-		linesChanged, filesChanged, err := calculateCommitChanges(commit, pathArg)
+		linesChanged, filesChanged, err := calculateCommitChanges(commit, pathFilters)
 		if err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func analyzeHighRiskCommits(repo *git.Repository, pathArg string, lastArg string
 }
 
 // calculateCommitChanges computes lines and files changed for a commit
-func calculateCommitChanges(commit *object.Commit, pathArg string) (int, int, error) {
+func calculateCommitChanges(commit *object.Commit, pathFilters []string) (int, int, error) {
 	var linesChanged int
 	var filesChanged int
 	
@@ -252,7 +252,7 @@ func calculateCommitChanges(commit *object.Commit, pathArg string) (int, int, er
 		}
 		
 		err = tree.Files().ForEach(func(file *object.File) error {
-			if matchesSinglePathFilter(file.Name, pathArg) {
+			if matchesPathFilter(file.Name, pathFilters) {
 				filesChanged++
 				// Count lines in initial files
 				contents, err := file.Contents()
@@ -293,7 +293,7 @@ func calculateCommitChanges(commit *object.Commit, pathArg string) (int, int, er
 	
 	// Filter stats to only include files matching the path filter
 	for _, fileStat := range stats {
-		if matchesSinglePathFilter(fileStat.Name, pathArg) {
+		if matchesPathFilter(fileStat.Name, pathFilters) {
 			fileSet[fileStat.Name] = true
 			linesChanged += fileStat.Addition + fileStat.Deletion
 		}

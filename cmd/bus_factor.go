@@ -361,7 +361,7 @@ func findFileAuthor(repo *git.Repository, fileName string, headCommit *object.Co
 // analyzeBusFactor performs bus factor analysis using an efficient commit-based approach
 // This provides accurate knowledge measurement while maintaining good performance by
 // analyzing file authorship through commit history rather than line-by-line blame.
-func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*BusFactorAnalysis, error) {
+func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []string) (*BusFactorAnalysis, error) {
 	ref, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
@@ -386,7 +386,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 	
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if !matchesSinglePathFilter(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
 		
@@ -429,7 +429,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 	// Count lines by author per directory
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if !matchesSinglePathFilter(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
 		
@@ -651,7 +651,7 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "bus-factor.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 
 		repo, err := git.PlainOpen(".")
@@ -669,7 +669,7 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 			since = cutoff
 		}
 
-		analysis, err := analyzeBusFactor(repo, since, pathArg)
+		analysis, err := analyzeBusFactor(repo, since, pathFilters)
 		if err != nil {
 			log.Fatalf("Error analyzing bus factor: %v", err)
 		}
@@ -680,7 +680,7 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 
 func init() {
 	busFactorCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
-	busFactorCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	busFactorCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	busFactorCmd.Flags().Int("limit", 10, "Number of top results to show")
 	rootCmd.AddCommand(busFactorCmd)
 }

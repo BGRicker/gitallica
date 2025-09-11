@@ -59,7 +59,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "survival.paths")
 		debugArg, _ := cmd.Flags().GetBool("debug")
 
 		// Parse --last argument
@@ -171,7 +171,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 						log.Printf("[survival] Chunk %d: type %s, content preview: %q", i, chunkType, contentPreview)
 					}
 				}
-				if pathArg != "" && !strings.HasPrefix(filename, pathArg) {
+				if !matchesPathFilter(filename, pathFilters) {
 					continue
 				}
 				for _, chunk := range fileStat.Chunks() {
@@ -215,7 +215,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 			log.Fatalf("Failed to get HEAD tree: %v", err)
 		}
 		err = headTree.Files().ForEach(func(f *object.File) error {
-			if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+			if !matchesPathFilter(f.Name, pathFilters) {
 				return nil
 			}
 			// Only text files
@@ -265,7 +265,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 
 func init() {
 	survivalCmd.Flags().String("last", "", "Time window to consider (e.g. 7d, 2m, 1y)")
-	survivalCmd.Flags().String("path", "", "Restrict to file path prefix")
+	survivalCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	survivalCmd.Flags().Bool("debug", false, "Enable debug logging for survival analysis")
 	rootCmd.AddCommand(survivalCmd)
 }

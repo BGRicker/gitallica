@@ -90,12 +90,13 @@ The analysis identifies:
 			return fmt.Errorf("could not open repository: %v", err)
 		}
 
-		pathArg, _ := cmd.Flags().GetString("path")
+		
 		lastArg, _ := cmd.Flags().GetString("last")
+		pathFilters := getConfigPaths(cmd, "long-lived-branches.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showMergedArg, _ := cmd.Flags().GetBool("show-merged")
 
-		stats, err := analyzeLongLivedBranches(repo, pathArg, lastArg, limitArg, showMergedArg)
+		stats, err := analyzeLongLivedBranches(repo, pathFilters, lastArg, limitArg, showMergedArg)
 		if err != nil {
 			return err
 		}
@@ -108,13 +109,13 @@ The analysis identifies:
 func init() {
 	rootCmd.AddCommand(longLivedBranchesCmd)
 	longLivedBranchesCmd.Flags().String("last", "", "Specify the time window to analyze (e.g., 30d, 6m, 1y)")
-	longLivedBranchesCmd.Flags().String("path", "", "Limit analysis to branches affecting a specific directory or path")
+	longLivedBranchesCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	longLivedBranchesCmd.Flags().Int("limit", 10, "Number of risky branches to show in detailed output")
 	longLivedBranchesCmd.Flags().Bool("show-merged", false, "Include recently merged branches in analysis")
 }
 
 // analyzeLongLivedBranches performs the main branch analysis
-func analyzeLongLivedBranches(repo *git.Repository, pathArg string, lastArg string, limitArg int, showMerged bool) (*LongLivedBranchesStats, error) {
+func analyzeLongLivedBranches(repo *git.Repository, pathFilters []string, lastArg string, limitArg int, showMerged bool) (*LongLivedBranchesStats, error) {
 	// Parse time window if provided
 	var cutoffTime time.Time
 	var err error
@@ -126,7 +127,7 @@ func analyzeLongLivedBranches(repo *git.Repository, pathArg string, lastArg stri
 	}
 
 	// Get all branches (local and remote)
-	branches, err := getAllBranches(repo, cutoffTime, pathArg, showMerged)
+	branches, err := getAllBranches(repo, cutoffTime, pathFilters, showMerged)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze branches: %v", err)
 	}
@@ -138,7 +139,7 @@ func analyzeLongLivedBranches(repo *git.Repository, pathArg string, lastArg stri
 }
 
 // getAllBranches retrieves and analyzes all branches in the repository
-func getAllBranches(repo *git.Repository, cutoffTime time.Time, pathArg string, showMerged bool) ([]BranchInfo, error) {
+func getAllBranches(repo *git.Repository, cutoffTime time.Time, pathFilters []string, showMerged bool) ([]BranchInfo, error) {
 	var branches []BranchInfo
 	now := time.Now()
 
@@ -193,8 +194,8 @@ func getAllBranches(repo *git.Repository, cutoffTime time.Time, pathArg string, 
 		}
 
 		// Skip if path filter doesn't match
-		if pathArg != "" {
-			affects, err := branchAffectsPath(repo, ref.Hash(), head.Hash(), pathArg)
+		if len(pathFilters) > 0 {
+			affects, err := branchAffectsPath(repo, ref.Hash(), head.Hash(), pathFilters)
 			if err != nil || !affects {
 				return nil
 			}
@@ -382,7 +383,7 @@ func isBranchMerged(repo *git.Repository, branchHash, mainHash plumbing.Hash) (b
 }
 
 // branchAffectsPath checks if a branch has changes affecting the specified path
-func branchAffectsPath(repo *git.Repository, branchHash, mainHash plumbing.Hash, pathArg string) (bool, error) {
+func branchAffectsPath(repo *git.Repository, branchHash, mainHash plumbing.Hash, pathFilters []string) (bool, error) {
 	// Get commits unique to this branch
 	branchCommit, err := repo.CommitObject(branchHash)
 	if err != nil {
@@ -397,7 +398,7 @@ func branchAffectsPath(repo *git.Repository, branchHash, mainHash plumbing.Hash,
 
 	found := false
 	err = tree.Files().ForEach(func(file *object.File) error {
-		if matchesSinglePathFilter(file.Name, pathArg) {
+		if matchesPathFilter(file.Name, pathFilters) {
 			found = true
 		}
 		return nil

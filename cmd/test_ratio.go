@@ -169,7 +169,7 @@ func classifyTestRatio(ratio float64) (string, string) {
 }
 
 // analyzeTestRatio analyzes the test-to-code ratio in the repository
-func analyzeTestRatio(repo *git.Repository, pathArg string) (*TestRatioStats, error) {
+func analyzeTestRatio(repo *git.Repository, pathFilters []string) (*TestRatioStats, error) {
 	ref, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
@@ -189,7 +189,7 @@ func analyzeTestRatio(repo *git.Repository, pathArg string) (*TestRatioStats, er
 	
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if !matchesSinglePathFilter(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
 		
@@ -236,10 +236,10 @@ func analyzeTestRatio(repo *git.Repository, pathArg string) (*TestRatioStats, er
 }
 
 // printTestRatioStats prints the test ratio analysis results
-func printTestRatioStats(stats *TestRatioStats, pathArg string) {
+func printTestRatioStats(stats *TestRatioStats, pathFilters []string) {
 	fmt.Printf("Code vs Test Ratio Analysis\n")
-	if pathArg != "" {
-		fmt.Printf("Path filter: %s\n", pathArg)
+	if len(pathFilters) > 0 {
+		fmt.Printf("Path filters: %s\n", strings.Join(pathFilters, ", "))
 	}
 	fmt.Printf("Total files analyzed: %d\n", stats.TotalFiles)
 	fmt.Printf("Source files: %d (%d LOC)\n", stats.SourceFiles, stats.SourceLOC)
@@ -305,23 +305,23 @@ Classifications:
 "Test code is just as important as production code." — Robert C. Martin, Clean Code`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "test-ratio.paths")
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {
 			log.Fatalf("Could not open repository: %v", err)
 		}
 
-		stats, err := analyzeTestRatio(repo, pathArg)
+		stats, err := analyzeTestRatio(repo, pathFilters)
 		if err != nil {
 			log.Fatalf("Error analyzing test ratio: %v", err)
 		}
 
-		printTestRatioStats(stats, pathArg)
+		printTestRatioStats(stats, pathFilters)
 	},
 }
 
 func init() {
-	testRatioCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	testRatioCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	rootCmd.AddCommand(testRatioCmd)
 }

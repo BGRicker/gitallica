@@ -93,12 +93,12 @@ The analysis identifies:
 			return fmt.Errorf("could not open repository: %v", err)
 		}
 
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "change-lead-time.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		methodArg, _ := cmd.Flags().GetString("method")
 
-		stats, err := analyzeChangeLeadTime(repo, pathArg, lastArg, limitArg, methodArg)
+		stats, err := analyzeChangeLeadTime(repo, pathFilters, lastArg, limitArg, methodArg)
 		if err != nil {
 			return err
 		}
@@ -111,13 +111,13 @@ The analysis identifies:
 func init() {
 	rootCmd.AddCommand(changeLeadTimeCmd)
 	changeLeadTimeCmd.Flags().String("last", "", "Specify the time window to analyze (e.g., 30d, 6m, 1y)")
-	changeLeadTimeCmd.Flags().String("path", "", "Limit analysis to commits affecting a specific directory or path")
+	changeLeadTimeCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	changeLeadTimeCmd.Flags().Int("limit", 5, "Number of slowest/fastest commits to show in detailed output")
 	changeLeadTimeCmd.Flags().String("method", "merge", "Lead time calculation method: 'merge' (commit to main) or 'tag' (commit to release tag)")
 }
 
 // analyzeChangeLeadTime performs the main lead time analysis
-func analyzeChangeLeadTime(repo *git.Repository, pathArg string, lastArg string, limitArg int, method string) (*ChangeLeadTimeStats, error) {
+func analyzeChangeLeadTime(repo *git.Repository, pathFilters []string, lastArg string, limitArg int, method string) (*ChangeLeadTimeStats, error) {
 	// Parse time window if provided
 	var cutoffTime time.Time
 	var err error
@@ -129,7 +129,7 @@ func analyzeChangeLeadTime(repo *git.Repository, pathArg string, lastArg string,
 	}
 
 	// Get commits with lead time measurements
-	commits, err := getCommitsWithLeadTime(repo, cutoffTime, pathArg, method)
+	commits, err := getCommitsWithLeadTime(repo, cutoffTime, pathFilters, method)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze lead time: %v", err)
 	}
@@ -141,7 +141,7 @@ func analyzeChangeLeadTime(repo *git.Repository, pathArg string, lastArg string,
 }
 
 // getCommitsWithLeadTime retrieves commits and calculates their lead times
-func getCommitsWithLeadTime(repo *git.Repository, cutoffTime time.Time, pathArg string, method string) ([]CommitLeadTime, error) {
+func getCommitsWithLeadTime(repo *git.Repository, cutoffTime time.Time, pathFilters []string, method string) ([]CommitLeadTime, error) {
 	var commits []CommitLeadTime
 
 	// Get the default branch (usually main/master)
@@ -169,8 +169,8 @@ func getCommitsWithLeadTime(repo *git.Repository, cutoffTime time.Time, pathArg 
 		}
 
 		// Skip if path filter doesn't match
-		if pathArg != "" {
-			affects, err := commitAffectsPath(commit, pathArg)
+		if len(pathFilters) > 0 {
+			affects, err := commitAffectsPath(commit, pathFilters)
 			if err != nil || !affects {
 				return nil
 			}
@@ -501,6 +501,45 @@ func calculateChangeLeadTimeStats(commits []CommitLeadTime) *ChangeLeadTimeStats
 }
 
 // calculatePercentile calculates the nth percentile of a sorted slice
+// commitAffectsPath checks if a commit affects any of the specified paths
+func commitAffectsPath(commit *object.Commit, pathFilters []string) (bool, error) {
+	if commit.NumParents() == 0 {
+		// Initial commit - check if it has files in any of the paths
+		tree, err := commit.Tree()
+		if err != nil {
+			return false, err
+		}
+		
+		found := false
+		err = tree.Files().ForEach(func(file *object.File) error {
+			if matchesPathFilter(file.Name, pathFilters) {
+				found = true
+			}
+			return nil
+		})
+		return found, err
+	}
+	
+	// Regular commit - check diff
+	parent, err := commit.Parent(0)
+	if err != nil {
+		return false, err
+	}
+	
+	patch, err := parent.Patch(commit)
+	if err != nil {
+		return false, err
+	}
+	
+	for _, fileStat := range patch.Stats() {
+		if matchesPathFilter(fileStat.Name, pathFilters) {
+			return true, nil
+		}
+	}
+	
+	return false, nil
+}
+
 func calculatePercentile(values []float64, percentile int) float64 {
 	if len(values) == 0 {
 		return 0
