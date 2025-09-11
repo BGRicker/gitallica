@@ -310,10 +310,33 @@ func sortDirectoriesByBusFactorRisk(dirs []DirectoryBusFactorStats) []DirectoryB
 
 // findFileAuthor finds the most recent author of a file using efficient commit traversal
 func findFileAuthor(repo *git.Repository, fileName string, headCommit *object.Commit, since time.Time) (object.Signature, error) {
-	// Walk through commits to find the most recent modification of this file
+	// First try to find the author within the specified time window
+	author, found := findFileAuthorInTimeWindow(repo, fileName, headCommit, since)
+	if found {
+		return author, nil
+	}
+	
+	// If not found in time window, try to find the most recent author overall
+	// This handles cases where files were last modified before the cutoff time
+	author, found = findFileAuthorInTimeWindow(repo, fileName, headCommit, time.Time{})
+	if found {
+		return author, nil
+	}
+	
+	// If still not found, try using a comprehensive fallback approach
+	author, found = findFileAuthorWithFallback(repo, fileName, headCommit)
+	if found {
+		return author, nil
+	}
+	
+	return object.Signature{}, fmt.Errorf("could not determine author for file %s", fileName)
+}
+
+// findFileAuthorInTimeWindow finds the most recent author of a file within a specific time window
+func findFileAuthorInTimeWindow(repo *git.Repository, fileName string, headCommit *object.Commit, since time.Time) (object.Signature, bool) {
 	cIter, err := repo.Log(&git.LogOptions{From: headCommit.Hash})
 	if err != nil {
-		return object.Signature{}, err
+		return object.Signature{}, false
 	}
 	defer cIter.Close()
 	
@@ -371,14 +394,78 @@ func findFileAuthor(repo *git.Repository, fileName string, headCommit *object.Co
 	})
 	
 	if err != nil && err != storer.ErrStop {
-		return object.Signature{}, err
+		return object.Signature{}, false
 	}
 	
-	if lastAuthor.Name == "" {
-		return object.Signature{}, fmt.Errorf("could not determine author for file %s", fileName)
+	return lastAuthor, lastAuthor.Name != ""
+}
+
+// findFileAuthorWithFallback uses a more comprehensive approach to find the author
+func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommit *object.Commit) (object.Signature, bool) {
+	// Try to find the author by looking at the file's creation in the initial commit
+	cIter, err := repo.Log(&git.LogOptions{From: headCommit.Hash})
+	if err != nil {
+		return object.Signature{}, false
+	}
+	defer cIter.Close()
+	
+	var lastAuthor object.Signature
+	var found bool
+	
+	// Walk through all commits to find when the file was first created
+	err = cIter.ForEach(func(c *object.Commit) error {
+		if c.NumParents() == 0 {
+			// Initial commit - check if file exists
+			tree, err := c.Tree()
+			if err != nil {
+				return nil
+			}
+			
+			_, err = tree.File(fileName)
+			if err == nil {
+				// File exists in this commit
+				lastAuthor = c.Author
+				found = true
+				return storer.ErrStop
+			}
+		} else {
+			// Regular commit - check if file was added (not just modified)
+			parent, err := c.Parent(0)
+			if err != nil {
+				return nil
+			}
+			
+			parentTree, err := parent.Tree()
+			if err != nil {
+				return nil
+			}
+			
+			tree, err := c.Tree()
+			if err != nil {
+				return nil
+			}
+			
+			// Check if file exists in current commit but not in parent
+			_, err = tree.File(fileName)
+			if err == nil {
+				_, err = parentTree.File(fileName)
+				if err != nil {
+					// File was added in this commit
+					lastAuthor = c.Author
+					found = true
+					return storer.ErrStop
+				}
+			}
+		}
+		
+		return nil
+	})
+	
+	if err != nil && err != storer.ErrStop {
+		return object.Signature{}, false
 	}
 	
-	return lastAuthor, nil
+	return lastAuthor, found
 }
 
 // analyzeBusFactor performs bus factor analysis using an efficient commit-based approach
@@ -436,6 +523,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		author, err := findFileAuthor(repo, f.Name, headCommit, since)
 		if err != nil {
 			// If we can't determine the author, skip this file
+			// This can happen for files that were never committed or have no git history
 			log.Printf("Warning: failed to get author for %s: %v", f.Name, err)
 			return nil
 		}
