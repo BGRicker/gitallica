@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -144,6 +146,50 @@ func matchesSinglePathFilter(filePath, pathFilter string) bool {
 		return true
 	}
 	return matchesPathFilter(filePath, []string{pathFilter})
+}
+
+// commitAffectsPath checks if a commit affects any of the specified path filters
+func commitAffectsPath(commit *object.Commit, pathFilters []string) (bool, error) {
+	if len(pathFilters) == 0 {
+		return true, nil
+	}
+
+	// For initial commits, check if any files match the path filters
+	if commit.NumParents() == 0 {
+		tree, err := commit.Tree()
+		if err != nil {
+			return false, err
+		}
+		
+		found := false
+		err = tree.Files().ForEach(func(f *object.File) error {
+			if matchesPathFilter(f.Name, pathFilters) {
+				found = true
+				return storer.ErrStop // Stop iteration
+			}
+			return nil
+		})
+		return found, err
+	}
+
+	// For regular commits, check the diff against parent
+	parent, err := commit.Parent(0)
+	if err != nil {
+		return false, err
+	}
+
+	patch, err := parent.Patch(commit)
+	if err != nil {
+		return false, err
+	}
+
+	for _, stat := range patch.Stats() {
+		if matchesPathFilter(stat.Name, pathFilters) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // getConfigPaths returns configured paths from viper config, falling back to command line args
