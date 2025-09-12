@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/spf13/cobra"
@@ -76,7 +77,16 @@ type BusFactorAnalysis struct {
 func normalizeAuthorName(name, email string) string {
 	// Clean and normalize inputs
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
-	cleanName := strings.TrimSpace(name)
+	cleanName := strings.ToLower(strings.TrimSpace(name))
+	
+	// Handle common email variations for the same person using configurable mappings
+	for _, mapping := range DefaultAuthorMappings {
+		for _, pattern := range mapping.Patterns {
+			if strings.Contains(cleanEmail, pattern) || strings.Contains(cleanName, pattern) {
+				return mapping.Canonical
+			}
+		}
+	}
 	
 	// Check if email looks generic or invalid
 	if isGenericEmail(cleanEmail) && cleanName != "" {
@@ -310,10 +320,33 @@ func sortDirectoriesByBusFactorRisk(dirs []DirectoryBusFactorStats) []DirectoryB
 
 // findFileAuthor finds the most recent author of a file using efficient commit traversal
 func findFileAuthor(repo *git.Repository, fileName string, headCommit *object.Commit, since time.Time) (object.Signature, error) {
-	// Walk through commits to find the most recent modification of this file
+	// First try to find the author within the specified time window
+	author, found := findFileAuthorInTimeWindow(repo, fileName, headCommit, since)
+	if found {
+		return author, nil
+	}
+	
+	// If not found in time window, try to find the most recent author overall
+	// This handles cases where files were last modified before the cutoff time
+	author, found = findFileAuthorInTimeWindow(repo, fileName, headCommit, time.Time{})
+	if found {
+		return author, nil
+	}
+	
+	// If still not found, try using a comprehensive fallback approach
+	author, found = findFileAuthorWithFallback(repo, fileName, headCommit)
+	if found {
+		return author, nil
+	}
+	
+	return object.Signature{}, fmt.Errorf("could not determine author for file %s", fileName)
+}
+
+// findFileAuthorInTimeWindow finds the most recent author of a file within a specific time window
+func findFileAuthorInTimeWindow(repo *git.Repository, fileName string, headCommit *object.Commit, since time.Time) (object.Signature, bool) {
 	cIter, err := repo.Log(&git.LogOptions{From: headCommit.Hash})
 	if err != nil {
-		return object.Signature{}, err
+		return object.Signature{}, false
 	}
 	defer cIter.Close()
 	
@@ -371,14 +404,162 @@ func findFileAuthor(repo *git.Repository, fileName string, headCommit *object.Co
 	})
 	
 	if err != nil && err != storer.ErrStop {
-		return object.Signature{}, err
+		return object.Signature{}, false
 	}
 	
-	if lastAuthor.Name == "" {
-		return object.Signature{}, fmt.Errorf("could not determine author for file %s", fileName)
+	return lastAuthor, lastAuthor.Name != ""
+}
+
+// findFileAuthorWithFallback uses a more comprehensive approach to find the author
+func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommit *object.Commit) (object.Signature, bool) {
+	// Try to find the author by looking at the file's creation in the initial commit
+	cIter, err := repo.Log(&git.LogOptions{From: headCommit.Hash})
+	if err != nil {
+		return object.Signature{}, false
+	}
+	defer cIter.Close()
+	
+	var lastAuthor object.Signature
+	var found bool
+	
+	// Walk through all commits to find when the file was first created
+	err = cIter.ForEach(func(c *object.Commit) error {
+		if c.NumParents() == 0 {
+			// Initial commit - check if file exists
+			tree, err := c.Tree()
+			if err != nil {
+				return nil
+			}
+			
+			_, err = tree.File(fileName)
+			if err == nil {
+				// File exists in this commit
+				lastAuthor = c.Author
+				found = true
+				return storer.ErrStop
+			}
+		} else {
+			// Regular commit - check if file was added (not just modified)
+			parent, err := c.Parent(0)
+			if err != nil {
+				return nil
+			}
+			
+			parentTree, err := parent.Tree()
+			if err != nil {
+				return nil
+			}
+			
+			tree, err := c.Tree()
+			if err != nil {
+				return nil
+			}
+			
+			// Check if file exists in current commit but not in parent
+			_, err = tree.File(fileName)
+			if err == nil {
+				_, err = parentTree.File(fileName)
+				if err != nil {
+					// File was added in this commit
+					lastAuthor = c.Author
+					found = true
+					return storer.ErrStop
+				}
+			}
+		}
+		
+		return nil
+	})
+	
+	if err != nil && err != storer.ErrStop {
+		return object.Signature{}, false
 	}
 	
-	return lastAuthor, nil
+	return lastAuthor, found
+}
+
+// buildFileAuthorMap efficiently builds a map of file authors using a single git traversal
+func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathArg string, fileAuthors map[string]map[string]int) error {
+	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	if err != nil {
+		return fmt.Errorf("could not get commits: %v", err)
+	}
+	defer cIter.Close()
+	
+	err = cIter.ForEach(func(c *object.Commit) error {
+		if !since.IsZero() && c.Committer.When.Before(since) {
+			return storer.ErrStop
+		}
+		
+		// Handle merge commits by diffing against their first parent
+		var parentTree *object.Tree
+		if c.NumParents() > 0 {
+			parent, err := c.Parent(0)
+			if err != nil {
+				return nil
+			}
+			parentTree, err = parent.Tree()
+			if err != nil {
+				return nil
+			}
+		}
+		
+		tree, err := c.Tree()
+		if err != nil {
+			return nil
+		}
+		
+		if parentTree != nil {
+			// Compare with parent to get changed files
+			changes, err := tree.Diff(parentTree)
+			if err != nil {
+				return nil
+			}
+			
+			for _, change := range changes {
+				if change.To.Name == "" {
+					continue // skip deletions
+				}
+				
+				// Apply path filter if specified
+				if pathArg != "" && !matchesPathFilter(change.To.Name, pathArg) {
+					continue
+				}
+				
+				// Initialize file authors map if needed
+				if fileAuthors[change.To.Name] == nil {
+					fileAuthors[change.To.Name] = make(map[string]int)
+				}
+				
+				author := normalizeAuthorName(c.Author.Name, c.Author.Email)
+				fileAuthors[change.To.Name][author]++ // Count commits, not lines
+			}
+		} else {
+			// Initial commit - all files are authored by this commit
+			err = tree.Files().ForEach(func(f *object.File) error {
+				if pathArg != "" && !matchesPathFilter(f.Name, pathArg) {
+					return nil
+				}
+				
+				// Initialize file authors map if needed
+				if fileAuthors[f.Name] == nil {
+					fileAuthors[f.Name] = make(map[string]int)
+				}
+				
+				author := normalizeAuthorName(c.Author.Name, c.Author.Email)
+				fileAuthors[f.Name][author]++ // Count commits, not lines
+				
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		
+		return nil
+	})
+	
+	return err
 }
 
 // analyzeBusFactor performs bus factor analysis using an efficient commit-based approach
@@ -404,9 +585,14 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
 	
-	// Get all files in current tree and initialize directory structure
-	fileAuthors := make(map[string]string) // file -> most recent author
+	// Build comprehensive file author map efficiently
+	fileAuthors := make(map[string]map[string]int) // file -> author -> lines contributed
+	err = buildFileAuthorMap(repo, ref, since, pathArg, fileAuthors)
+	if err != nil {
+		return nil, fmt.Errorf("error building file author map: %v", err)
+	}
 	
+	// Initialize directory structure
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
 		if !matchesPathFilter(f.Name, pathArg) {
@@ -432,16 +618,6 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 			directoryOwnership[dir] = make(map[string]int)
 		}
 		
-		// Find the most recent author of this file
-		author, err := findFileAuthor(repo, f.Name, headCommit, since)
-		if err != nil {
-			// If we can't determine the author, skip this file
-			log.Printf("Warning: failed to get author for %s: %v", f.Name, err)
-			return nil
-		}
-		
-		fileAuthors[f.Name] = normalizeAuthorName(author.Name, author.Email)
-		
 		return nil
 	})
 	
@@ -449,75 +625,45 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 		return nil, fmt.Errorf("error analyzing files: %v", err)
 	}
 	
-	// Count lines by author per directory
-	err = tree.Files().ForEach(func(f *object.File) error {
-		// Apply path filter if specified
-		if !matchesPathFilter(f.Name, pathArg) {
-			return nil
-		}
-		
-		// Skip binary files
-		isBinary, err := f.IsBinary()
-		if err != nil || isBinary {
-			return nil
-		}
-		
+	// Count commits by author per directory
+	for fileName, authorCommits := range fileAuthors {
 		// Get directory for this file
-		dir := filepath.Dir(f.Name)
+		dir := filepath.Dir(fileName)
 		if dir == "." {
 			dir = "root"
 		} else {
 			dir = dir + "/"
 		}
 		
-		// Get file author
-		author, exists := fileAuthors[f.Name]
-		if !exists {
-			return nil
+		// Initialize directory ownership map if needed
+		if directoryOwnership[dir] == nil {
+			directoryOwnership[dir] = make(map[string]int)
 		}
 		
-		// Count lines in this file
-		content, err := f.Contents()
-		if err != nil {
-			return nil
+		// Add each author's commits to the directory
+		for author, commits := range authorCommits {
+			directoryOwnership[dir][author] += commits
 		}
-		
-		lines := strings.Split(content, "\n")
-		lineCount := 0
-		for _, line := range lines {
-			if strings.TrimSpace(line) != "" {
-				lineCount++
-			}
-		}
-		
-		// Add to directory ownership
-		directoryOwnership[dir][author] += lineCount
-		
-		return nil
-	})
-	
-	if err != nil {
-		return nil, fmt.Errorf("error counting lines: %v", err)
 	}
 	
 	// Calculate bus factor statistics for each directory
 	var directoryStats []DirectoryBusFactorStats
-	for dir, authorLines := range directoryOwnership {
-		totalLines := 0
-		for _, lines := range authorLines {
-			totalLines += lines
+	for dir, authorCommits := range directoryOwnership {
+		totalCommits := 0
+		for _, commits := range authorCommits {
+			totalCommits += commits
 		}
 		
-		busFactor := calculateBusFactor(authorLines)
-		riskLevel := classifyBusFactorRisk(busFactor, len(authorLines))
-		authorPercentages := calculateAuthorContributionPercentage(authorLines)
-		topContributors := getTopContributors(authorLines, authorPercentages, 5)
+		busFactor := calculateBusFactor(authorCommits)
+		riskLevel := classifyBusFactorRisk(busFactor, len(authorCommits))
+		authorPercentages := calculateAuthorContributionPercentage(authorCommits)
+		topContributors := getTopContributors(authorCommits, authorPercentages, 5)
 		recommendation := getRecommendation(riskLevel, busFactor)
 		
 		stats := DirectoryBusFactorStats{
 			Path:              dir,
-			TotalLines:        totalLines,
-			AuthorLines:       authorLines,
+			TotalLines:        totalCommits, // Using commits as proxy for lines
+			AuthorLines:       authorCommits, // Using commits as proxy for lines
 			AuthorPercentages: authorPercentages,
 			BusFactor:         busFactor,
 			RiskLevel:         riskLevel,
