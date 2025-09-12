@@ -150,6 +150,22 @@ gitallica churn --path README.md  # Overrides all config files
 - **Explicit**: `--config /path/to/config.yaml` flag
 - **CLI flags**: Always override configuration files
 
+**Configuration Visibility:**
+Every command now shows you exactly what configuration is being used:
+
+```bash
+❯ gitallica churn --last 7d --path README.md
+Using config file: /Users/benricker/code/gitallica/.gitallica.yaml
+=== Churn Analysis Scope ===
+Time window: last 7 days
+Path filter: README.md (from CLI)
+```
+
+This helps you:
+- **Remember project settings** when working with multiple repositories
+- **Spot unintended configurations** when CLI flags override YAML settings
+- **Debug configuration issues** by seeing exactly what's being used
+
 ## Documentation
 
 - **[User Guide](docs/USER_GUIDE.md)** - Comprehensive usage guide

@@ -93,10 +93,13 @@ The analysis identifies:
 			return fmt.Errorf("could not open repository: %v", err)
 		}
 
-		pathFilters := getConfigPaths(cmd, "change-lead-time.paths")
+		pathFilters, source := getConfigPaths(cmd, "change-lead-time.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		methodArg, _ := cmd.Flags().GetString("method")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "change-lead-time", lastArg, pathFilters, source)
 
 		stats, err := analyzeChangeLeadTime(repo, pathFilters, lastArg, limitArg, methodArg)
 		if err != nil {

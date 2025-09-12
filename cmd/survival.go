@@ -59,8 +59,11 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "survival.paths")
+		pathFilters, source := getConfigPaths(cmd, "survival.paths")
 		debugArg, _ := cmd.Flags().GetBool("debug")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "survival", lastArg, pathFilters, source)
 
 		// Parse --last argument
 		var cutoff time.Time

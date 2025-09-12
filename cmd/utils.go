@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -203,20 +204,104 @@ func mergeViperConfig(source, target *viper.Viper) {
 	}
 }
 
-// getConfigPaths returns configured paths from viper config, falling back to command line args
-func getConfigPaths(cmd *cobra.Command, configKey string) []string {
-	// First try to get from command line flags
+// getConfigPaths returns configured paths from CLI flags or config file, with CLI taking precedence
+func getConfigPaths(cmd *cobra.Command, configKey string) ([]string, string) {
+	// First try to get from command line flags (highest priority)
 	pathArgs, _ := cmd.Flags().GetStringSlice("path")
 	if len(pathArgs) > 0 {
-		return pathArgs
+		return pathArgs, "(from CLI)"
 	}
 	
 	// Fall back to config file
 	if viper.IsSet(configKey) {
 		if paths := viper.GetStringSlice(configKey); len(paths) > 0 {
-			return paths
+			return paths, "(from config)"
 		}
 	}
 	
-	return []string{}
+	return []string{}, ""
 }
+
+// titleCase converts a string to title case (first letter of each word capitalized)
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	
+	words := strings.Fields(s)
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+// expandTimeWindow converts abbreviated time windows to readable format
+func expandTimeWindow(lastArg string) string {
+	if lastArg == "" {
+		return "all time"
+	}
+	
+	// Handle common abbreviations
+	switch lastArg {
+	case "1d":
+		return "last 1 day"
+	case "2d":
+		return "last 2 days"
+	case "3d":
+		return "last 3 days"
+	case "7d":
+		return "last 7 days"
+	case "14d":
+		return "last 14 days"
+	case "30d":
+		return "last 30 days"
+	case "1m":
+		return "last 1 month"
+	case "2m":
+		return "last 2 months"
+	case "3m":
+		return "last 3 months"
+	case "6m":
+		return "last 6 months"
+	case "1y":
+		return "last 1 year"
+	case "2y":
+		return "last 2 years"
+	case "3y":
+		return "last 3 years"
+	default:
+		// For any other format, return the original string unchanged to
+		// avoid misleading output
+		return lastArg
+	}
+}
+
+// printCommandScope prints the configuration scope for a command
+func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, pathFilters []string, source string) {
+	// Print config file information if available
+	if viper.ConfigFileUsed() != "" {
+		fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
+	}
+	
+	// Print command scope header
+	fmt.Fprintf(os.Stderr, "=== %s Analysis Scope ===\n", titleCase(strings.ReplaceAll(commandName, "-", " ")))
+	
+	// Print time window with expanded format
+	fmt.Fprintf(os.Stderr, "Time window: %s\n", expandTimeWindow(lastArg))
+	
+	// Print path filters with source
+	if len(pathFilters) > 0 {
+		label := "Path filter:"
+		if len(pathFilters) > 1 {
+			label = "Path filters:"
+		}
+		fmt.Fprintf(os.Stderr, "%s %s %s\n", label, strings.Join(pathFilters, ", "), source)
+	} else {
+		fmt.Fprintf(os.Stderr, "Path filter: all files\n")
+	}
+	
+	fmt.Fprintf(os.Stderr, "\n")
+}
+

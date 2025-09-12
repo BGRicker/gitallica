@@ -246,10 +246,13 @@ Thresholds are based on research showing reviews are most effective under 400 li
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "commit-size.paths")
+		pathFilters, source := getConfigPaths(cmd, "commit-size.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		minRiskArg, _ := cmd.Flags().GetString("min-risk")
 		summaryArg, _ := cmd.Flags().GetBool("summary")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "commit-size", lastArg, pathFilters, source)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

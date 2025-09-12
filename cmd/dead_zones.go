@@ -497,8 +497,11 @@ Based on Clean Code principles - untouched code becomes a liability over time.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "dead-zones.paths")
+		pathFilters, source := getConfigPaths(cmd, "dead-zones.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "dead-zones", lastArg, pathFilters, source)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

@@ -52,6 +52,13 @@ var churnCmd = &cobra.Command{
 This helps you understand whether your repo is growing sustainably 
 or accumulating complexity.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Parse flags
+		lastArg, _ := cmd.Flags().GetString("last")
+		pathFilters, source := getConfigPaths(cmd, "churn.paths")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "churn", lastArg, pathFilters, source)
+		
 		repo, err := git.PlainOpen(".")
 		if err != nil {
 			log.Fatalf("Could not open repository: %v", err)
@@ -67,8 +74,6 @@ or accumulating complexity.`,
 			log.Fatalf("Could not get commits: %v", err)
 		}
 
-		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "churn.paths")
 		since := time.Time{}
 		if lastArg != "" {
 			cutoff, err := parseDurationArg(lastArg)
