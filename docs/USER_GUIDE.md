@@ -49,6 +49,10 @@ gitallica churn --path src/
 # Analyze specific file
 gitallica survival --path src/main.go
 
+# Multiple paths (NEW!)
+gitallica churn --path src/ --path lib/ --path app/
+gitallica bus-factor --path cmd/ --path main.go --path README.md
+
 # Combined filters
 gitallica bus-factor --last 90d --path lib/
 ```
@@ -250,6 +254,61 @@ gitallica survival --path package.json
 gitallica churn --last 30d --path src/
 gitallica survival --last 6m --path lib/ --limit 5
 ```
+
+## Configuration
+
+### Setup Configuration File
+
+Create a `.gitallica.yaml` file to avoid repeating common options:
+
+```bash
+# Copy example config to your home directory
+cp .gitallica.yaml.example ~/.gitallica.yaml
+```
+
+### Configuration Example
+
+```yaml
+# Per-command path configuration
+churn:
+  paths:
+    - "src/"
+    - "lib/"
+    - "app/"
+
+bus-factor:
+  paths:
+    - "src/"
+    - "lib/"
+
+test-ratio:
+  paths:
+    - "src/"
+    - "tests/"
+
+# Global defaults
+defaults:
+  last: "6m"  # Default time window
+  limit: 20  # Default number of results to show
+```
+
+### Using Configuration
+
+```bash
+# Uses your config file settings
+gitallica churn
+
+# Overrides config with CLI flags
+gitallica churn --path README.md
+
+# Multiple paths override config
+gitallica churn --path src/ --path lib/
+```
+
+**Configuration Priority:**
+1. Command-line flags (highest priority)
+2. Configuration file settings  
+3. Default values (lowest priority)
 
 ## Advanced Usage
 

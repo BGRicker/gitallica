@@ -407,9 +407,9 @@ func TestMatchesPathFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := matchesPathFilter(tt.filePath, tt.filter)
+			result := matchesSinglePathFilter(tt.filePath, tt.filter)
 			if result != tt.expected {
-				t.Errorf("matchesPathFilter(%q, %q) = %v, want %v", tt.filePath, tt.filter, result, tt.expected)
+				t.Errorf("matchesSinglePathFilter(%q, %q) = %v, want %v", tt.filePath, tt.filter, result, tt.expected)
 			}
 		})
 	}

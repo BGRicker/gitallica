@@ -5,17 +5,33 @@ All notable changes to Gitallica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2025-01-10
 
 ### Added
-- Comprehensive documentation structure with User Guide, Command Reference, and Research Methodology
-- Contributing guidelines and development setup instructions
-- Homebrew-ready README structure with badges and clear installation path
+- **Multiple Path Support**: All commands now support multiple `--path` flags for analyzing multiple directories/files simultaneously
+  - Example: `gitallica churn --path src/ --path lib/ --path app/`
+  - Works across all 14 metrics for flexible analysis scope
+- **Configuration File System**: Complete YAML configuration support with `.gitallica.yaml`
+  - Per-command path configuration (e.g., `churn.paths`, `bus-factor.paths`)
+  - Global defaults for `last` and `limit` settings
+  - Configuration priority: CLI flags > config file > defaults
+  - Example configuration file provided (`.gitallica.yaml.example`)
+- **Enhanced CLI Experience**: Improved command-line interface with better path handling
+  - Cross-platform path normalization for Windows/macOS/Linux compatibility
+  - Backward compatibility maintained for single-path usage
 
 ### Changed
-- Restructured README.md for better Homebrew compatibility
-- Moved detailed usage examples to separate documentation files
-- Improved project organization for open source best practices
+- **Path Filtering**: Enhanced from single-path to multi-path support across all commands
+- **Configuration Management**: Centralized configuration system using Viper
+- **Documentation**: Updated README with comprehensive configuration examples and setup instructions
+
+### Technical Implementation
+- **Path Processing**: New `matchesPathFilter()` and `matchesSinglePathFilter()` utilities
+- **Configuration Integration**: `getConfigPaths()` helper for unified config/CLI handling
+- **Cross-Platform Support**: Proper path handling for different operating systems
+- **Backward Compatibility**: All existing single-path usage continues to work unchanged
+
+## [Unreleased]
 
 ## [1.0.0] - 2025-01-XX
 
@@ -140,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **v1.1.0**: Multiple path support and configuration file system
 - **v1.0.0**: Complete implementation of 14/15 research-backed metrics
 - **v0.1.0**: Initial project setup and basic functionality
 

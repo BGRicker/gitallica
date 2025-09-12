@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -97,7 +98,7 @@ func classifyOnboardingComplexity(filesCount int) (string, string) {
 }
 
 // analyzeOnboardingFootprint analyzes onboarding patterns in the repository
-func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg string, commitLimit int) (*OnboardingFootprintStats, error) {
+func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, lastArg string, commitLimit int) (*OnboardingFootprintStats, error) {
 	var since *time.Time
 	timeWindow := "all time"
 	
@@ -154,7 +155,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 			}
 			
 			err = tree.Files().ForEach(func(file *object.File) error {
-				if matchesPathFilter(file.Name, pathArg) {
+				if matchesPathFilter(file.Name, pathFilters) {
 					filesChanged = append(filesChanged, file.Name)
 				}
 				return nil
@@ -192,7 +193,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathArg string, lastArg st
 					filePath = change.From.Name
 				}
 				
-				if filePath != "" && matchesPathFilter(filePath, pathArg) {
+				if filePath != "" && matchesPathFilter(filePath, pathFilters) {
 					filesChanged = append(filesChanged, filePath)
 				}
 			}
@@ -370,10 +371,10 @@ type CommitInfo struct {
 }
 
 // printOnboardingFootprintStats prints the onboarding footprint analysis results
-func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathArg string, limit int, commitLimit int) {
+func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathFilters []string, limit int, commitLimit int) {
 	fmt.Printf("Onboarding Footprint Analysis\n")
-	if pathArg != "" {
-		fmt.Printf("Path filter: %s\n", pathArg)
+	if len(pathFilters) > 0 {
+		fmt.Printf("Path filters: %s\n", strings.Join(pathFilters, ", "))
 	}
 	fmt.Printf("Time window: %s\n", stats.TimeWindow)
 	fmt.Printf("Contributors found: %d\n", stats.TotalContributors)
@@ -504,7 +505,7 @@ Complexity Classifications:
 easy to read makes it easier to write." — Robert C. Martin, Clean Code`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "onboarding-footprint.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limit, _ := cmd.Flags().GetInt("limit")
 		commitLimit, _ := cmd.Flags().GetInt("commit-limit")
@@ -514,17 +515,17 @@ easy to read makes it easier to write." — Robert C. Martin, Clean Code`,
 			log.Fatalf("Could not open repository: %v", err)
 		}
 
-		stats, err := analyzeOnboardingFootprint(repo, pathArg, lastArg, commitLimit)
+		stats, err := analyzeOnboardingFootprint(repo, pathFilters, lastArg, commitLimit)
 		if err != nil {
 			log.Fatalf("Error analyzing onboarding footprint: %v", err)
 		}
 
-		printOnboardingFootprintStats(stats, pathArg, limit, commitLimit)
+		printOnboardingFootprintStats(stats, pathFilters, limit, commitLimit)
 	},
 }
 
 func init() {
-	onboardingFootprintCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	onboardingFootprintCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	onboardingFootprintCmd.Flags().String("last", "", "Limit analysis to recent timeframe (e.g., '30d', '6m', '1y')")
 	onboardingFootprintCmd.Flags().Int("limit", 10, "Number of contributors to show in detailed analysis")
 	onboardingFootprintCmd.Flags().Int("commit-limit", onboardingDefaultCommitLimit, "Number of initial commits to analyze per contributor")

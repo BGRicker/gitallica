@@ -137,7 +137,7 @@ func aggregateDirectoryChurn(files []FileChurnStats) []DirectoryChurnStats {
 }
 
 // processCommitForFileChurn processes a single commit to extract file-level churn data.
-func processCommitForFileChurn(c *object.Commit, pathArg string) (map[string]FileChurnStats, error) {
+func processCommitForFileChurn(c *object.Commit, pathFilters []string) (map[string]FileChurnStats, error) {
 	fileStats := make(map[string]FileChurnStats)
 	
 	if c.NumParents() == 0 {
@@ -157,7 +157,7 @@ func processCommitForFileChurn(c *object.Commit, pathArg string) (map[string]Fil
 		}
 		
 		for _, stat := range patch.Stats() {
-			if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
+			if !matchesPathFilter(stat.Name, pathFilters) {
 				continue
 			}
 			
@@ -191,7 +191,7 @@ func processCommitForFileChurn(c *object.Commit, pathArg string) (map[string]Fil
 }
 
 // getCurrentFileSizes gets the current size (LOC) of all files in the repository.
-func getCurrentFileSizes(repo *git.Repository, pathArg string) (map[string]int, error) {
+func getCurrentFileSizes(repo *git.Repository, pathFilters []string) (map[string]int, error) {
 	ref, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
@@ -219,7 +219,7 @@ func getCurrentFileSizes(repo *git.Repository, pathArg string) (map[string]int, 
 		}
 		
 		// Optionally filter by path
-		if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
 		
@@ -279,7 +279,7 @@ Thresholds:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "churn-files.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showDirsArg, _ := cmd.Flags().GetBool("directories")
 
@@ -299,7 +299,7 @@ Thresholds:
 		}
 
 		// Get current file sizes
-		fileSizes, err := getCurrentFileSizes(repo, pathArg)
+		fileSizes, err := getCurrentFileSizes(repo, pathFilters)
 		if err != nil {
 			log.Fatalf("Could not get current file sizes: %v", err)
 		}
@@ -321,7 +321,7 @@ Thresholds:
 				return storer.ErrStop
 			}
 			
-			commitFileStats, err := processCommitForFileChurn(c, pathArg)
+			commitFileStats, err := processCommitForFileChurn(c, pathFilters)
 			if err != nil {
 				log.Printf("Error processing commit %s: %v", c.Hash.String(), err)
 				return nil
@@ -364,8 +364,8 @@ Thresholds:
 			}
 			return fmt.Sprintf("since %s", since.Format("2006-01-02"))
 		}())
-		if pathArg != "" {
-			fmt.Printf("Path filter: %s\n", pathArg)
+		if len(pathFilters) > 0 {
+			fmt.Printf("Path filters: %s\n", strings.Join(pathFilters, ", "))
 		}
 		fmt.Printf("Threshold: >%d%% churn flags instability\n", churnFilesCautionThreshold)
 		fmt.Println("Context:", churnFilesBenchmarkContext)
@@ -381,7 +381,7 @@ Thresholds:
 
 func init() {
 	churnFilesCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
-	churnFilesCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	churnFilesCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	churnFilesCmd.Flags().Int("limit", 10, "Number of top results to show")
 	churnFilesCmd.Flags().Bool("directories", false, "Also show directory-level churn statistics")
 	rootCmd.AddCommand(churnFilesCmd)

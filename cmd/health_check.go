@@ -105,7 +105,7 @@ func categorizeIssue(metric string) string {
 }
 
 // analyzeChurnHealth checks churn patterns for issues
-func analyzeChurnHealth(repo *git.Repository, since time.Time, pathArg string) []HealthIssue {
+func analyzeChurnHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
 	
 	// Run churn analysis
@@ -125,7 +125,7 @@ func analyzeChurnHealth(repo *git.Repository, since time.Time, pathArg string) [
 			return nil
 		}
 		// Use the existing function from the codebase
-		additions_c, deletions_c, _, err := processCommitForSize(c, pathArg)
+		additions_c, deletions_c, _, err := processCommitForSize(c, pathFilters)
 		if err != nil {
 			return nil // Skip commits with errors
 		}
@@ -149,7 +149,7 @@ func analyzeChurnHealth(repo *git.Repository, since time.Time, pathArg string) [
 	
 	var totalLOC int
 	tree.Files().ForEach(func(f *object.File) error {
-		if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
 		isBinary, err := f.IsBinary()
@@ -189,10 +189,10 @@ func analyzeChurnHealth(repo *git.Repository, since time.Time, pathArg string) [
 }
 
 // analyzeTestRatioHealth checks test coverage for issues
-func analyzeTestRatioHealth(repo *git.Repository, pathArg string) []HealthIssue {
+func analyzeTestRatioHealth(repo *git.Repository, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
 	
-	stats, err := analyzeTestRatio(repo, pathArg)
+	stats, err := analyzeTestRatio(repo, pathFilters)
 	if err != nil {
 		return issues
 	}
@@ -218,10 +218,10 @@ func analyzeTestRatioHealth(repo *git.Repository, pathArg string) []HealthIssue 
 }
 
 // analyzeBusFactorHealth checks knowledge concentration for issues
-func analyzeBusFactorHealth(repo *git.Repository, since time.Time, pathArg string) []HealthIssue {
+func analyzeBusFactorHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
 	
-	analysis, err := analyzeBusFactor(repo, since, pathArg)
+	analysis, err := analyzeBusFactor(repo, since, pathFilters)
 	if err != nil {
 		return issues
 	}
@@ -279,7 +279,7 @@ func getRealProjectAge(repo *git.Repository) (time.Duration, error) {
 }
 
 // analyzeDeadZonesHealth checks for stale code
-func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathArg string) []HealthIssue {
+func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
 	
 	// Skip dead zone analysis for very new projects (less than 3 months old)
@@ -289,7 +289,7 @@ func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathArg strin
 		return issues // Skip dead zone analysis for new projects
 	}
 	
-	analysis, err := analyzeDeadZones(repo, since, pathArg)
+	analysis, err := analyzeDeadZones(repo, since, pathFilters)
 	if err != nil {
 		return issues
 	}
@@ -320,7 +320,7 @@ func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathArg strin
 }
 
 // analyzeCommitSizeHealth checks for risky commits
-func analyzeCommitSizeHealth(repo *git.Repository, since time.Time, pathArg string) []HealthIssue {
+func analyzeCommitSizeHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
 	
 	ref, err := repo.Head()
@@ -341,7 +341,7 @@ func analyzeCommitSizeHealth(repo *git.Repository, since time.Time, pathArg stri
 			return nil
 		}
 		
-		additions, deletions, filesChanged, err := processCommitForSize(c, pathArg)
+		additions, deletions, filesChanged, err := processCommitForSize(c, pathFilters)
 		if err != nil {
 			return nil
 		}
@@ -479,15 +479,15 @@ func printHealthReport(report *HealthReport) {
 }
 
 // performHealthCheck runs all health checks and returns a comprehensive report
-func performHealthCheck(repo *git.Repository, since time.Time, pathArg string) (*HealthReport, error) {
+func performHealthCheck(repo *git.Repository, since time.Time, pathFilters []string) (*HealthReport, error) {
 	var allIssues []HealthIssue
 	
 	// Run all health checks
-	allIssues = append(allIssues, analyzeChurnHealth(repo, since, pathArg)...)
-	allIssues = append(allIssues, analyzeTestRatioHealth(repo, pathArg)...)
-	allIssues = append(allIssues, analyzeBusFactorHealth(repo, since, pathArg)...)
-	allIssues = append(allIssues, analyzeDeadZonesHealth(repo, since, pathArg)...)
-	allIssues = append(allIssues, analyzeCommitSizeHealth(repo, since, pathArg)...)
+	allIssues = append(allIssues, analyzeChurnHealth(repo, since, pathFilters)...)
+	allIssues = append(allIssues, analyzeTestRatioHealth(repo, pathFilters)...)
+	allIssues = append(allIssues, analyzeBusFactorHealth(repo, since, pathFilters)...)
+	allIssues = append(allIssues, analyzeDeadZonesHealth(repo, since, pathFilters)...)
+	allIssues = append(allIssues, analyzeCommitSizeHealth(repo, since, pathFilters)...)
 	
 	// Sort issues by severity score (highest first)
 	sort.Slice(allIssues, func(i, j int) bool {
@@ -557,7 +557,7 @@ Issues are ranked by severity and categorized for easy prioritization.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "health-check.paths")
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {
@@ -574,7 +574,7 @@ Issues are ranked by severity and categorized for easy prioritization.`,
 			since = cutoff
 		}
 
-		report, err := performHealthCheck(repo, since, pathArg)
+		report, err := performHealthCheck(repo, since, pathFilters)
 		if err != nil {
 			log.Fatalf("Error performing health check: %v", err)
 		}
@@ -585,6 +585,6 @@ Issues are ranked by severity and categorized for easy prioritization.`,
 
 func init() {
 	healthCheckCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
-	healthCheckCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	healthCheckCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	rootCmd.AddCommand(healthCheckCmd)
 }

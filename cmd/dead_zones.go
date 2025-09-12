@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"log"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -212,7 +211,7 @@ func findFileInCommitHistoryWithTimeWindow(repo *git.Repository, fileName string
 }
 
 // buildFileModificationMap efficiently builds a map of file modification times
-func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathArg string, fileLastModified map[string]time.Time) error {
+func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathFilters []string, fileLastModified map[string]time.Time) error {
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return fmt.Errorf("could not get commits: %v", err)
@@ -256,7 +255,7 @@ func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, sin
 				}
 				
 				// Apply path filter if specified
-				if pathArg != "" && !strings.HasPrefix(change.To.Name, pathArg) {
+				if !matchesPathFilter(change.To.Name, pathFilters) {
 					continue
 				}
 				
@@ -268,7 +267,7 @@ func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, sin
 		} else {
 			// Initial commit - all files are "modified" at this time
 			err = tree.Files().ForEach(func(f *object.File) error {
-				if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+				if !matchesPathFilter(f.Name, pathFilters) {
 					return nil
 				}
 				
@@ -301,7 +300,7 @@ func sortDeadZonesByAge(files []DeadZoneFileStats) []DeadZoneFileStats {
 }
 
 // analyzeDeadZones performs dead zone analysis on the repository
-func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*DeadZoneAnalysis, error) {
+func analyzeDeadZones(repo *git.Repository, since time.Time, pathFilters []string) (*DeadZoneAnalysis, error) {
 	ref, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
@@ -311,7 +310,7 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*D
 	fileLastModified := make(map[string]time.Time)
 	
 	// Build comprehensive file modification map efficiently
-	err = buildFileModificationMap(repo, ref, since, pathArg, fileLastModified)
+	err = buildFileModificationMap(repo, ref, since, pathFilters, fileLastModified)
 	
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
@@ -336,7 +335,7 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*D
 	
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
 		
@@ -498,7 +497,7 @@ Based on Clean Code principles - untouched code becomes a liability over time.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "dead-zones.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 
 		repo, err := git.PlainOpen(".")
@@ -516,7 +515,7 @@ Based on Clean Code principles - untouched code becomes a liability over time.`,
 			since = cutoff
 		}
 
-		analysis, err := analyzeDeadZones(repo, since, pathArg)
+		analysis, err := analyzeDeadZones(repo, since, pathFilters)
 		if err != nil {
 			log.Fatalf("Error analyzing dead zones: %v", err)
 		}
@@ -527,7 +526,7 @@ Based on Clean Code principles - untouched code becomes a liability over time.`,
 
 func init() {
 	deadZonesCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
-	deadZonesCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	deadZonesCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	deadZonesCmd.Flags().Int("limit", 10, "Number of top results to show")
 	rootCmd.AddCommand(deadZonesCmd)
 }

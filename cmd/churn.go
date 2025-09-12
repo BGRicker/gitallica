@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -19,7 +18,7 @@ const (
 	churnCautionThreshold  = 15
 )
 
-func processCommitDiffs(c *object.Commit, pathArg string) (int, int) {
+func processCommitDiffs(c *object.Commit, pathFilters []string) (int, int) {
 	var additions, deletions int
 	if c.NumParents() == 0 {
 		return 0, 0
@@ -33,7 +32,7 @@ func processCommitDiffs(c *object.Commit, pathArg string) (int, int) {
 			return nil
 		}
 		for _, stat := range patch.Stats() {
-			if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
+			if !matchesPathFilter(stat.Name, pathFilters) {
 				continue
 			}
 			additions += stat.Addition
@@ -69,7 +68,7 @@ or accumulating complexity.`,
 		}
 
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "churn.paths")
 		since := time.Time{}
 		if lastArg != "" {
 			cutoff, err := parseDurationArg(lastArg)
@@ -84,7 +83,7 @@ or accumulating complexity.`,
 			if !since.IsZero() && c.Committer.When.Before(since) {
 				return storer.ErrStop
 			}
-			a, d := processCommitDiffs(c, pathArg)
+			a, d := processCommitDiffs(c, pathFilters)
 			additions += a
 			deletions += d
 			return nil
@@ -113,7 +112,7 @@ or accumulating complexity.`,
 				return nil
 			}
 			// Optionally filter by path
-			if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+			if !matchesPathFilter(f.Name, pathFilters) {
 				return nil
 			}
 			content, err := f.Contents()
@@ -153,5 +152,5 @@ or accumulating complexity.`,
 func init() {
 	rootCmd.AddCommand(churnCmd)
 	churnCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
-	churnCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	churnCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 }

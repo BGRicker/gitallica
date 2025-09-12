@@ -124,7 +124,7 @@ func truncateMessage(message string, maxLen int) string {
 }
 
 // processCommitForSize processes a single commit to extract size statistics.
-func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, error) {
+func processCommitForSize(c *object.Commit, pathFilters []string) (int, int, int, error) {
 	var additions, deletions, filesChanged int
 	
 	if c.NumParents() == 0 {
@@ -135,7 +135,7 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 		}
 		
 		err = tree.Files().ForEach(func(f *object.File) error {
-			if pathArg != "" && !strings.HasPrefix(f.Name, pathArg) {
+			if !matchesPathFilter(f.Name, pathFilters) {
 				return nil
 			}
 			content, err := f.Contents()
@@ -164,7 +164,7 @@ func processCommitForSize(c *object.Commit, pathArg string) (int, int, int, erro
 		}
 		
 		for _, stat := range patch.Stats() {
-			if pathArg != "" && !strings.HasPrefix(stat.Name, pathArg) {
+			if !matchesPathFilter(stat.Name, pathFilters) {
 				continue
 			}
 			
@@ -246,7 +246,7 @@ Thresholds are based on research showing reviews are most effective under 400 li
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "commit-size.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		minRiskArg, _ := cmd.Flags().GetString("min-risk")
 		summaryArg, _ := cmd.Flags().GetBool("summary")
@@ -283,7 +283,7 @@ Thresholds are based on research showing reviews are most effective under 400 li
 				return storer.ErrStop
 			}
 			
-			additions, deletions, filesChanged, err := processCommitForSize(c, pathArg)
+			additions, deletions, filesChanged, err := processCommitForSize(c, pathFilters)
 			if err != nil {
 				log.Printf("Error processing commit %s: %v", c.Hash.String(), err)
 				return nil
@@ -326,8 +326,8 @@ Thresholds are based on research showing reviews are most effective under 400 li
 			}
 			return fmt.Sprintf("since %s", since.Format("2006-01-02"))
 		}())
-		if pathArg != "" {
-			fmt.Printf("Path filter: %s\n", pathArg)
+		if len(pathFilters) > 0 {
+			fmt.Printf("Path filters: %s\n", strings.Join(pathFilters, ", "))
 		}
 		if minRiskArg != "" {
 			fmt.Printf("Min risk level: %s\n", minRiskArg)
@@ -349,7 +349,7 @@ Thresholds are based on research showing reviews are most effective under 400 li
 
 func init() {
 	commitSizeCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
-	commitSizeCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	commitSizeCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	commitSizeCmd.Flags().Int("limit", 10, "Number of top results to show")
 	commitSizeCmd.Flags().String("min-risk", "", "Minimum risk level to show (Low, Medium, High, Critical)")
 	commitSizeCmd.Flags().Bool("summary", false, "Show risk distribution summary")

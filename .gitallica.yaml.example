@@ -1,0 +1,44 @@
+# Gitallica Configuration File
+# Copy this to ~/.gitallica.yaml or .gitallica.yaml in your project root
+
+# Default paths to analyze for each command
+# If not specified, all paths are analyzed
+churn:
+  paths:
+    - "src/"
+    - "lib/"
+    - "app/"
+
+bus-factor:
+  paths:
+    - "src/"
+    - "lib/"
+
+test-ratio:
+  paths:
+    - "src/"
+    - "test/"
+    - "spec/"
+
+dead-zones:
+  paths:
+    - "src/"
+    - "lib/"
+
+commit-size:
+  paths:
+    - "src/"
+    - "lib/"
+
+# Global settings
+defaults:
+  last: "6m"  # Default time window
+  limit: 20  # Default number of results to show
+
+# Command-specific settings
+health-check:
+  paths:
+    - "src/"
+    - "lib/"
+  last: "3m"
+

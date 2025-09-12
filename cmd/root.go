@@ -61,7 +61,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gitallica.yaml)")
 }
 
-// initConfig reads in config file and ENV variables if set.
+// initConfig reads in config file if set.
 func initConfig() {
 	if cfgFile != "" {
 		// Use config file from the flag.
@@ -76,8 +76,6 @@ func initConfig() {
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".gitallica")
 	}
-
-	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {

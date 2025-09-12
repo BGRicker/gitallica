@@ -18,7 +18,7 @@ Analyzes additions vs. deletions ratio to measure code volatility.
 
 **Flags:**
 - `--last string`: Time window (e.g., `30d`, `6m`, `1y`)
-- `--path string`: Limit to specific directory or file
+- `--path string`: Limit to specific directory or file (can be specified multiple times)
 
 **Examples:**
 ```bash
@@ -364,26 +364,48 @@ All commands support the `--last` flag with the following format:
 
 ## Path Filtering
 
-All commands support the `--path` flag for filtering analysis scope:
+All commands support the `--path` flag for filtering analysis scope. **Multiple paths are supported** for analyzing multiple directories or files simultaneously.
 
-### Directory Filtering
+### Single Path Filtering
 ```bash
 --path src/           # Analyze src/ directory
 --path lib/           # Analyze lib/ directory
 --path cmd/           # Analyze cmd/ directory
+--path src/main.go    # Analyze specific file
 ```
 
-### File Filtering
+### Multiple Path Filtering (NEW!)
 ```bash
---path src/main.go    # Analyze specific file
---path package.json   # Analyze specific file
---path README.md      # Analyze specific file
+# Multiple directories
+gitallica churn --path src/ --path lib/ --path app/
+
+# Mixed directories and files
+gitallica bus-factor --path cmd/ --path main.go --path README.md
+
+# Multiple specific files
+gitallica test-ratio --path src/main.go --path tests/main_test.go
 ```
 
 ### Combined Filtering
 ```bash
-gitallica churn --last 30d --path src/
-gitallica survival --last 6m --path lib/ --limit 5
+gitallica churn --last 30d --path src/ --path lib/
+gitallica survival --last 6m --path lib/ --path app/ --limit 5
+```
+
+### Configuration File Integration
+```bash
+# Set up default paths in ~/.gitallica.yaml
+churn:
+  paths:
+    - "src/"
+    - "lib/"
+    - "app/"
+
+# Then run without specifying paths
+gitallica churn  # Uses config file paths
+
+# Or override with CLI flags
+gitallica churn --path README.md  # Overrides config, analyzes only README.md
 ```
 
 ## Output Control
@@ -408,27 +430,49 @@ gitallica survival --last 6m --path lib/ --limit 5
 ## Configuration
 
 ### Config File
-Gitallica supports configuration via YAML file:
+Gitallica supports configuration via YAML file with **per-command path settings** and global defaults:
 
 **Default location**: `~/.gitallica.yaml`
 
 **Example configuration**:
 ```yaml
+# Per-command path configuration
+churn:
+  paths:
+    - "src/"
+    - "lib/"
+    - "app/"
+
+bus-factor:
+  paths:
+    - "src/"
+    - "lib/"
+
+test-ratio:
+  paths:
+    - "src/"
+    - "tests/"
+
+# Global defaults
 defaults:
   last: "30d"
   limit: 10
-  path: "src/"
-
-thresholds:
-  churn: 20
-  survival: 50
-  bus_factor: 4
 ```
 
-### Environment Variables
+**Configuration Priority:**
+1. Command-line flags (highest priority)
+2. Configuration file settings
+3. Default values (lowest priority)
+
+**Setup:**
 ```bash
-export GITALLICA_CONFIG=~/.gitallica.yaml
-export GITALLICA_DEBUG=true
+# Copy example config
+cp .gitallica.yaml.example ~/.gitallica.yaml
+
+# Customize your paths and settings
+# Then run commands without specifying paths
+gitallica churn  # Uses your config
+gitallica churn --path README.md  # Overrides config
 ```
 
 ## Error Handling

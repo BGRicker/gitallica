@@ -135,29 +135,6 @@ func isGenericEmail(email string) bool {
 	return false
 }
 
-// matchesPathFilter checks if a file path matches the given filter using proper path handling
-func matchesPathFilter(filePath, pathFilter string) bool {
-	if pathFilter == "" {
-		return true
-	}
-	
-	// Normalize paths for cross-platform compatibility
-	// Convert backslashes to forward slashes first for Windows compatibility
-	cleanFilePath := strings.ReplaceAll(filePath, "\\", "/")
-	cleanPathFilter := strings.ReplaceAll(pathFilter, "\\", "/")
-	
-	// Clean the paths
-	cleanFilePath = filepath.ToSlash(filepath.Clean(cleanFilePath))
-	cleanPathFilter = filepath.ToSlash(filepath.Clean(cleanPathFilter))
-	
-	// Exact match
-	if cleanFilePath == cleanPathFilter {
-		return true
-	}
-	
-	// Check if file is under the specified directory (with proper directory boundary)
-	return strings.HasPrefix(cleanFilePath, cleanPathFilter+"/")
-}
 
 // calculateBusFactor calculates the bus factor for a directory based on author contributions
 func calculateBusFactor(authorCommits map[string]int) int {
@@ -479,7 +456,7 @@ func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommi
 }
 
 // buildFileAuthorMap efficiently builds a map of file authors using a single git traversal
-func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathArg string, fileAuthors map[string]map[string]int) error {
+func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathFilters []string, fileAuthors map[string]map[string]int) error {
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return fmt.Errorf("could not get commits: %v", err)
@@ -522,7 +499,7 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 				}
 				
 				// Apply path filter if specified
-				if pathArg != "" && !matchesPathFilter(change.To.Name, pathArg) {
+				if !matchesPathFilter(change.To.Name, pathFilters) {
 					continue
 				}
 				
@@ -537,7 +514,7 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 		} else {
 			// Initial commit - all files are authored by this commit
 			err = tree.Files().ForEach(func(f *object.File) error {
-				if pathArg != "" && !matchesPathFilter(f.Name, pathArg) {
+				if !matchesPathFilter(f.Name, pathFilters) {
 					return nil
 				}
 				
@@ -565,7 +542,7 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 // analyzeBusFactor performs bus factor analysis using an efficient commit-based approach
 // This provides accurate knowledge measurement while maintaining good performance by
 // analyzing file authorship through commit history rather than line-by-line blame.
-func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*BusFactorAnalysis, error) {
+func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []string) (*BusFactorAnalysis, error) {
 	ref, err := repo.Head()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
@@ -587,7 +564,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 	
 	// Build comprehensive file author map efficiently
 	fileAuthors := make(map[string]map[string]int) // file -> author -> lines contributed
-	err = buildFileAuthorMap(repo, ref, since, pathArg, fileAuthors)
+	err = buildFileAuthorMap(repo, ref, since, pathFilters, fileAuthors)
 	if err != nil {
 		return nil, fmt.Errorf("error building file author map: %v", err)
 	}
@@ -595,7 +572,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathArg string) (*B
 	// Initialize directory structure
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
-		if !matchesPathFilter(f.Name, pathArg) {
+		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
 		
@@ -820,7 +797,7 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathArg, _ := cmd.Flags().GetString("path")
+		pathFilters := getConfigPaths(cmd, "bus-factor.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 
 		repo, err := git.PlainOpen(".")
@@ -838,7 +815,7 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 			since = cutoff
 		}
 
-		analysis, err := analyzeBusFactor(repo, since, pathArg)
+		analysis, err := analyzeBusFactor(repo, since, pathFilters)
 		if err != nil {
 			log.Fatalf("Error analyzing bus factor: %v", err)
 		}
@@ -849,7 +826,7 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 
 func init() {
 	busFactorCmd.Flags().String("last", "", "Limit analysis to a timeframe (e.g. 7d, 2m, 1y)")
-	busFactorCmd.Flags().String("path", "", "Limit analysis to a specific path")
+	busFactorCmd.Flags().StringSlice("path", []string{}, "Limit analysis to specific paths (can be specified multiple times)")
 	busFactorCmd.Flags().Int("limit", 10, "Number of top results to show")
 	rootCmd.AddCommand(busFactorCmd)
 }
