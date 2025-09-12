@@ -97,6 +97,9 @@ The analysis identifies:
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		methodArg, _ := cmd.Flags().GetString("method")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "change-lead-time", lastArg, pathFilters)
 
 		stats, err := analyzeChangeLeadTime(repo, pathFilters, lastArg, limitArg, methodArg)
 		if err != nil {

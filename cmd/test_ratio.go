@@ -306,6 +306,9 @@ Classifications:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		pathFilters := getConfigPaths(cmd, "test-ratio.paths")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "test-ratio", "", pathFilters)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

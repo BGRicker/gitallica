@@ -558,6 +558,9 @@ Issues are ranked by severity and categorized for easy prioritization.`,
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
 		pathFilters := getConfigPaths(cmd, "health-check.paths")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "health-check", lastArg, pathFilters)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

@@ -282,6 +282,9 @@ Thresholds:
 		pathFilters := getConfigPaths(cmd, "churn-files.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showDirsArg, _ := cmd.Flags().GetBool("directories")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "churn-files", lastArg, pathFilters)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

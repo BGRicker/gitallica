@@ -76,6 +76,9 @@ architectural consideration.`,
 		pathFilters := getConfigPaths(cmd, "high-risk-commits.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "high-risk-commits", lastArg, pathFilters)
 
 		stats, err := analyzeHighRiskCommits(repo, pathFilters, lastArg, limitArg)
 		if err != nil {

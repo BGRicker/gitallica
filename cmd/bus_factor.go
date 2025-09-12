@@ -799,6 +799,9 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 		lastArg, _ := cmd.Flags().GetString("last")
 		pathFilters := getConfigPaths(cmd, "bus-factor.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "bus-factor", lastArg, pathFilters)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

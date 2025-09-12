@@ -509,6 +509,9 @@ easy to read makes it easier to write." — Robert C. Martin, Clean Code`,
 		lastArg, _ := cmd.Flags().GetString("last")
 		limit, _ := cmd.Flags().GetInt("limit")
 		commitLimit, _ := cmd.Flags().GetInt("commit-limit")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "onboarding-footprint", lastArg, pathFilters)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

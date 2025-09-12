@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -219,4 +220,67 @@ func getConfigPaths(cmd *cobra.Command, configKey string) []string {
 	}
 	
 	return []string{}
+}
+
+// expandTimeWindow converts abbreviated time windows to readable format
+func expandTimeWindow(lastArg string) string {
+	if lastArg == "" {
+		return "all time"
+	}
+	
+	// Handle common abbreviations
+	switch lastArg {
+	case "1d":
+		return "last 1 day"
+	case "2d":
+		return "last 2 days"
+	case "3d":
+		return "last 3 days"
+	case "7d":
+		return "last 7 days"
+	case "14d":
+		return "last 14 days"
+	case "30d":
+		return "last 30 days"
+	case "1m":
+		return "last 1 month"
+	case "2m":
+		return "last 2 months"
+	case "3m":
+		return "last 3 months"
+	case "6m":
+		return "last 6 months"
+	case "1y":
+		return "last 1 year"
+	case "2y":
+		return "last 2 years"
+	case "3y":
+		return "last 3 years"
+	default:
+		// For any other format, just prepend "last " to make it readable
+		return "last " + lastArg
+	}
+}
+
+// printCommandScope prints the configuration scope for a command
+func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, pathFilters []string) {
+	// Print config file information if available
+	if viper.ConfigFileUsed() != "" {
+		fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
+	}
+	
+	// Print command scope header
+	fmt.Fprintf(os.Stderr, "=== %s Analysis Scope ===\n", strings.Title(commandName))
+	
+	// Print time window with expanded format
+	fmt.Fprintf(os.Stderr, "Time window: %s\n", expandTimeWindow(lastArg))
+	
+	// Print path filters
+	if len(pathFilters) > 0 {
+		fmt.Fprintf(os.Stderr, "Path filter: %s\n", strings.Join(pathFilters, ", "))
+	} else {
+		fmt.Fprintf(os.Stderr, "Path filter: all files\n")
+	}
+	
+	fmt.Fprintf(os.Stderr, "\n")
 }

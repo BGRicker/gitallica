@@ -250,6 +250,9 @@ Thresholds are based on research showing reviews are most effective under 400 li
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		minRiskArg, _ := cmd.Flags().GetString("min-risk")
 		summaryArg, _ := cmd.Flags().GetBool("summary")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "commit-size", lastArg, pathFilters)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

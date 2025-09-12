@@ -61,6 +61,9 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 		lastArg, _ := cmd.Flags().GetString("last")
 		pathFilters := getConfigPaths(cmd, "survival.paths")
 		debugArg, _ := cmd.Flags().GetBool("debug")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "survival", lastArg, pathFilters)
 
 		// Parse --last argument
 		var cutoff time.Time

@@ -78,6 +78,9 @@ The analysis groups commits by time periods and identifies:
 		pathFilters := getConfigPaths(cmd, "commit-cadence.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		periodArg, _ := cmd.Flags().GetString("period")
+		
+		// Print configuration scope
+		printCommandScope(cmd, "commit-cadence", lastArg, pathFilters)
 
 		stats, err := analyzeCommitCadence(repo, pathFilters, lastArg, periodArg)
 		if err != nil {
