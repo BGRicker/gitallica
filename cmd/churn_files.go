@@ -279,12 +279,12 @@ Thresholds:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "churn-files.paths")
+		pathFilters, source := getConfigPaths(cmd, "churn-files.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showDirsArg, _ := cmd.Flags().GetBool("directories")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "churn-files", lastArg, pathFilters)
+		printCommandScope(cmd, "churn-files", lastArg, pathFilters, source)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

@@ -204,22 +204,37 @@ func mergeViperConfig(source, target *viper.Viper) {
 	}
 }
 
-// getConfigPaths returns configured paths from viper config, falling back to command line args
-func getConfigPaths(cmd *cobra.Command, configKey string) []string {
-	// First try to get from command line flags
+// getConfigPaths returns configured paths from CLI flags or config file, with CLI taking precedence
+func getConfigPaths(cmd *cobra.Command, configKey string) ([]string, string) {
+	// First try to get from command line flags (highest priority)
 	pathArgs, _ := cmd.Flags().GetStringSlice("path")
 	if len(pathArgs) > 0 {
-		return pathArgs
+		return pathArgs, "(from CLI)"
 	}
 	
 	// Fall back to config file
 	if viper.IsSet(configKey) {
 		if paths := viper.GetStringSlice(configKey); len(paths) > 0 {
-			return paths
+			return paths, "(from config)"
 		}
 	}
 	
-	return []string{}
+	return []string{}, ""
+}
+
+// titleCase converts a string to title case (first letter of each word capitalized)
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	
+	words := strings.Fields(s)
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 // expandTimeWindow converts abbreviated time windows to readable format
@@ -263,24 +278,25 @@ func expandTimeWindow(lastArg string) string {
 }
 
 // printCommandScope prints the configuration scope for a command
-func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, pathFilters []string) {
+func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, pathFilters []string, source string) {
 	// Print config file information if available
 	if viper.ConfigFileUsed() != "" {
 		fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
 	}
 	
 	// Print command scope header
-	fmt.Fprintf(os.Stderr, "=== %s Analysis Scope ===\n", strings.Title(commandName))
+	fmt.Fprintf(os.Stderr, "=== %s Analysis Scope ===\n", titleCase(commandName))
 	
 	// Print time window with expanded format
 	fmt.Fprintf(os.Stderr, "Time window: %s\n", expandTimeWindow(lastArg))
 	
-	// Print path filters
+	// Print path filters with source
 	if len(pathFilters) > 0 {
-		fmt.Fprintf(os.Stderr, "Path filter: %s\n", strings.Join(pathFilters, ", "))
+		fmt.Fprintf(os.Stderr, "Path filter: %s %s\n", strings.Join(pathFilters, ", "), source)
 	} else {
 		fmt.Fprintf(os.Stderr, "Path filter: all files\n")
 	}
 	
 	fmt.Fprintf(os.Stderr, "\n")
 }
+

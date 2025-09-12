@@ -73,12 +73,12 @@ architectural consideration.`,
 			return fmt.Errorf("could not open repository: %v", err)
 		}
 
-		pathFilters := getConfigPaths(cmd, "high-risk-commits.paths")
+		pathFilters, source := getConfigPaths(cmd, "high-risk-commits.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "high-risk-commits", lastArg, pathFilters)
+		printCommandScope(cmd, "high-risk-commits", lastArg, pathFilters, source)
 
 		stats, err := analyzeHighRiskCommits(repo, pathFilters, lastArg, limitArg)
 		if err != nil {

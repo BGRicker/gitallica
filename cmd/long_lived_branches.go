@@ -91,12 +91,12 @@ The analysis identifies:
 		}
 
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "long-lived-branches.paths")
+		pathFilters, source := getConfigPaths(cmd, "long-lived-branches.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showMergedArg, _ := cmd.Flags().GetBool("show-merged")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "long-lived-branches", lastArg, pathFilters)
+		printCommandScope(cmd, "long-lived-branches", lastArg, pathFilters, source)
 
 		stats, err := analyzeLongLivedBranches(repo, pathFilters, lastArg, limitArg, showMergedArg)
 		if err != nil {

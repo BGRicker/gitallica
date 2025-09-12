@@ -797,11 +797,11 @@ Based on Martin Fowler's collective ownership principles and industry research.`
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "bus-factor.paths")
+		pathFilters, source := getConfigPaths(cmd, "bus-factor.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "bus-factor", lastArg, pathFilters)
+		printCommandScope(cmd, "bus-factor", lastArg, pathFilters, source)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

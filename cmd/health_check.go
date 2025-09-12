@@ -557,10 +557,10 @@ Issues are ranked by severity and categorized for easy prioritization.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "health-check.paths")
+		pathFilters, source := getConfigPaths(cmd, "health-check.paths")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "health-check", lastArg, pathFilters)
+		printCommandScope(cmd, "health-check", lastArg, pathFilters, source)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

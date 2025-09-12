@@ -54,10 +54,10 @@ or accumulating complexity.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
-		pathFilters := getConfigPaths(cmd, "churn.paths")
+		pathFilters, source := getConfigPaths(cmd, "churn.paths")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "churn", lastArg, pathFilters)
+		printCommandScope(cmd, "churn", lastArg, pathFilters, source)
 		
 		repo, err := git.PlainOpen(".")
 		if err != nil {

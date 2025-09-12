@@ -305,10 +305,10 @@ Classifications:
 "Test code is just as important as production code." — Robert C. Martin, Clean Code`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		pathFilters := getConfigPaths(cmd, "test-ratio.paths")
+		pathFilters, source := getConfigPaths(cmd, "test-ratio.paths")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "test-ratio", "", pathFilters)
+		printCommandScope(cmd, "test-ratio", "", pathFilters, source)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {

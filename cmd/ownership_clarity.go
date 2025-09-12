@@ -452,12 +452,12 @@ Classifications:
 "With collective ownership, anyone can change any part of the code at any time." — Martin Fowler`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		pathFilters := getConfigPaths(cmd, "ownership-clarity.paths")
+		pathFilters, source := getConfigPaths(cmd, "ownership-clarity.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limit, _ := cmd.Flags().GetInt("limit")
 		
 		// Print configuration scope
-		printCommandScope(cmd, "ownership-clarity", lastArg, pathFilters)
+		printCommandScope(cmd, "ownership-clarity", lastArg, pathFilters, source)
 
 		repo, err := git.PlainOpen(".")
 		if err != nil {
