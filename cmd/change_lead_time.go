@@ -501,44 +501,7 @@ func calculateChangeLeadTimeStats(commits []CommitLeadTime) *ChangeLeadTimeStats
 }
 
 // calculatePercentile calculates the nth percentile of a sorted slice
-// commitAffectsPath checks if a commit affects any of the specified paths
-func commitAffectsPath(commit *object.Commit, pathFilters []string) (bool, error) {
-	if commit.NumParents() == 0 {
-		// Initial commit - check if it has files in any of the paths
-		tree, err := commit.Tree()
-		if err != nil {
-			return false, err
-		}
-		
-		found := false
-		err = tree.Files().ForEach(func(file *object.File) error {
-			if matchesPathFilter(file.Name, pathFilters) {
-				found = true
-			}
-			return nil
-		})
-		return found, err
-	}
-	
-	// Regular commit - check diff
-	parent, err := commit.Parent(0)
-	if err != nil {
-		return false, err
-	}
-	
-	patch, err := parent.Patch(commit)
-	if err != nil {
-		return false, err
-	}
-	
-	for _, fileStat := range patch.Stats() {
-		if matchesPathFilter(fileStat.Name, pathFilters) {
-			return true, nil
-		}
-	}
-	
-	return false, nil
-}
+// commitAffectsPath is now defined in utils.go
 
 func calculatePercentile(values []float64, percentile int) float64 {
 	if len(values) == 0 {
