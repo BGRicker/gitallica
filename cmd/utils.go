@@ -272,8 +272,9 @@ func expandTimeWindow(lastArg string) string {
 	case "3y":
 		return "last 3 years"
 	default:
-		// For any other format, just prepend "last " to make it readable
-		return "last " + lastArg
+		// For any other format, return the original string unchanged to
+		// avoid misleading output
+		return lastArg
 	}
 }
 
@@ -281,11 +282,11 @@ func expandTimeWindow(lastArg string) string {
 func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, pathFilters []string, source string) {
 	// Print config file information if available
 	if viper.ConfigFileUsed() != "" {
-		fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
+		fmt.Fprintf(os.Stderr, "Using project config file: %s\n", viper.ConfigFileUsed())
 	}
 	
 	// Print command scope header
-	fmt.Fprintf(os.Stderr, "=== %s Analysis Scope ===\n", titleCase(commandName))
+	fmt.Fprintf(os.Stderr, "=== %s Analysis Scope ===\n", titleCase(strings.ReplaceAll(commandName, "-", " ")))
 	
 	// Print time window with expanded format
 	fmt.Fprintf(os.Stderr, "Time window: %s\n", expandTimeWindow(lastArg))
