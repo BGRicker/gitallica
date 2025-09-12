@@ -39,17 +39,5 @@ type AuthorMapping struct {
 
 // DefaultAuthorMappings contains the default author normalization mappings.
 // These can be overridden in configuration files.
-var DefaultAuthorMappings = []AuthorMapping{
-	{
-		Patterns:  []string{"john", "mayer"},
-		Canonical: "john@rockandroll.com",
-	},
-	{
-		Patterns:  []string{"tim", "robinson"},
-		Canonical: "tim@ithinkyoushouldleave.com",
-	},
-	{
-		Patterns:  []string{"bo", "jackson"},
-		Canonical: "bo@raiders.com",
-	},
-}
+// DefaultAuthorMappings is empty by default. Configure as needed in your application.
+var DefaultAuthorMappings = []AuthorMapping{}
