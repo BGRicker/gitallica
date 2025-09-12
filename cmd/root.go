@@ -95,7 +95,11 @@ func initConfig() {
 	// Then try to load project-specific config (overrides home config)
 	// Search upwards from current directory to repository root
 	projectViper := viper.New()
-	currentDir, _ := os.Getwd()
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: could not determine current working directory:", err)
+		return
+	}
 	
 	// Walk up the directory tree to find project config
 	for dir := currentDir; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
