@@ -192,6 +192,17 @@ func commitAffectsPath(commit *object.Commit, pathFilters []string) (bool, error
 	return false, nil
 }
 
+// mergeViperConfig merges configuration from source viper into target viper
+func mergeViperConfig(source, target *viper.Viper) {
+	if source == nil || target == nil {
+		return
+	}
+	
+	for _, key := range source.AllKeys() {
+		target.Set(key, source.Get(key))
+	}
+}
+
 // getConfigPaths returns configured paths from viper config, falling back to command line args
 func getConfigPaths(cmd *cobra.Command, configKey string) []string {
 	// First try to get from command line flags

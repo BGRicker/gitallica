@@ -73,30 +73,13 @@ churn:
 		// Reset viper and test config loading with hierarchy
 		viper.Reset()
 
-		// Simulate the new initConfig logic
-		// Load home config first
-		homeViper := viper.New()
-		homeViper.AddConfigPath(homeDir)
-		homeViper.SetConfigType("yaml")
-		homeViper.SetConfigName(".gitallica")
-		
-		if err := homeViper.ReadInConfig(); err == nil {
-			for _, key := range homeViper.AllKeys() {
-				viper.Set(key, homeViper.Get(key))
-			}
-		}
+		// Mock the home directory for testing
+		originalHome := os.Getenv("HOME")
+		os.Setenv("HOME", homeDir)
+		defer os.Setenv("HOME", originalHome)
 
-		// Load project config (overrides home config)
-		projectViper := viper.New()
-		projectViper.AddConfigPath(".")
-		projectViper.SetConfigType("yaml")
-		projectViper.SetConfigName(".gitallica")
-		
-		if err := projectViper.ReadInConfig(); err == nil {
-			for _, key := range projectViper.AllKeys() {
-				viper.Set(key, projectViper.Get(key))
-			}
-		}
+		// Call the actual initConfig function
+		initConfig()
 
 		// Verify project config overrides home config
 		if viper.GetString("test_setting") != "project_value" {
@@ -153,30 +136,13 @@ global_setting: "home_global"`
 		// Reset viper and test config loading
 		viper.Reset()
 
-		// Simulate the new initConfig logic
-		// Load home config first
-		homeViper := viper.New()
-		homeViper.AddConfigPath(homeDir)
-		homeViper.SetConfigType("yaml")
-		homeViper.SetConfigName(".gitallica")
-		
-		if err := homeViper.ReadInConfig(); err == nil {
-			for _, key := range homeViper.AllKeys() {
-				viper.Set(key, homeViper.Get(key))
-			}
-		}
+		// Mock the home directory for testing
+		originalHome := os.Getenv("HOME")
+		os.Setenv("HOME", homeDir)
+		defer os.Setenv("HOME", originalHome)
 
-		// Try to load project config (should fail)
-		projectViper := viper.New()
-		projectViper.AddConfigPath(".")
-		projectViper.SetConfigType("yaml")
-		projectViper.SetConfigName(".gitallica")
-		
-		// Should not find project config
-		err = projectViper.ReadInConfig()
-		if err == nil {
-			t.Error("Expected error when reading non-existent project config")
-		}
+		// Call the actual initConfig function
+		initConfig()
 
 		// Verify home config was loaded
 		if viper.GetString("test_setting") != "home_value" {
@@ -201,13 +167,12 @@ explicit_setting: "explicit_only"`
 		// Reset viper and test explicit config loading
 		viper.Reset()
 
-		// Test explicit config loading
-		viper.SetConfigFile(explicitConfigPath)
+		// Set the config file flag
+		cfgFile = explicitConfigPath
+		defer func() { cfgFile = "" }()
 
-		err = viper.ReadInConfig()
-		if err != nil {
-			t.Fatalf("Failed to read explicit config: %v", err)
-		}
+		// Call the actual initConfig function
+		initConfig()
 
 		// Verify explicit config was loaded
 		if viper.GetString("test_setting") != "explicit_value" {
@@ -217,6 +182,58 @@ explicit_setting: "explicit_only"`
 			t.Errorf("Expected explicit_setting to be 'explicit_only', got '%s'", viper.GetString("explicit_setting"))
 		}
 	})
+}
+
+func TestUpwardConfigSearch(t *testing.T) {
+	// Test that config files are found in parent directories
+	tempDir, err := os.MkdirTemp("", "gitallica-upward-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create nested directory structure
+	parentDir := filepath.Join(tempDir, "parent")
+	childDir := filepath.Join(parentDir, "child")
+	err = os.MkdirAll(childDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create nested dirs: %v", err)
+	}
+
+	// Create config in parent directory
+	parentConfigPath := filepath.Join(parentDir, ".gitallica.yaml")
+	parentConfig := `test_setting: "parent_value"
+parent_only: "parent_specific"`
+	err = os.WriteFile(parentConfigPath, []byte(parentConfig), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write parent config: %v", err)
+	}
+
+	// Change to child directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current dir: %v", err)
+	}
+	defer os.Chdir(originalDir)
+
+	err = os.Chdir(childDir)
+	if err != nil {
+		t.Fatalf("Failed to change to child dir: %v", err)
+	}
+
+	// Reset viper and test config loading
+	viper.Reset()
+
+	// Call the actual initConfig function
+	initConfig()
+
+	// Verify parent config was found and loaded
+	if viper.GetString("test_setting") != "parent_value" {
+		t.Errorf("Expected test_setting to be 'parent_value', got '%s'", viper.GetString("test_setting"))
+	}
+	if viper.GetString("parent_only") != "parent_specific" {
+		t.Errorf("Expected parent_only to be 'parent_specific', got '%s'", viper.GetString("parent_only"))
+	}
 }
 
 func TestConfigFileExtensions(t *testing.T) {

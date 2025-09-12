@@ -24,6 +24,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -63,7 +64,7 @@ func init() {
 
 // initConfig reads in config file with proper hierarchy:
 // 1. Explicit config file (--config flag) - highest priority
-// 2. Project-specific .gitallica.yaml/.gitallica.yml in current directory
+// 2. Project-specific .gitallica.yaml/.gitallica.yml in current directory or parent directories
 // 3. Home directory ~/.gitallica.yaml - lowest priority
 func initConfig() {
 	if cfgFile != "" {
@@ -76,36 +77,39 @@ func initConfig() {
 	}
 
 	// Configuration hierarchy: project-specific overrides home directory
-	// First, try to load home directory config as base
-	home, err := os.UserHomeDir()
-	cobra.CheckErr(err)
-
-	// Load home config first (if it exists)
-	homeViper := viper.New()
-	homeViper.AddConfigPath(home)
-	homeViper.SetConfigType("yaml")
-	homeViper.SetConfigName(".gitallica")
-	
-	if err := homeViper.ReadInConfig(); err == nil {
-		// Merge home config into main viper
-		for _, key := range homeViper.AllKeys() {
-			viper.Set(key, homeViper.Get(key))
+	// First, try to load home directory config as base (non-fatal)
+	var homeViper *viper.Viper
+	home, homeErr := os.UserHomeDir()
+	if homeErr == nil {
+		hv := viper.New()
+		hv.AddConfigPath(home)
+		hv.SetConfigType("yaml")
+		hv.SetConfigName(".gitallica")
+		if err := hv.ReadInConfig(); err == nil {
+			// Merge home config into main viper
+			mergeViperConfig(hv, viper.GetViper())
 		}
+		homeViper = hv
 	}
 
 	// Then try to load project-specific config (overrides home config)
+	// Search upwards from current directory to repository root
 	projectViper := viper.New()
-	projectViper.AddConfigPath(".")
+	currentDir, _ := os.Getwd()
+	
+	// Walk up the directory tree to find project config
+	for dir := currentDir; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		projectViper.AddConfigPath(dir)
+	}
+	
 	projectViper.SetConfigType("yaml")
 	projectViper.SetConfigName(".gitallica")
 	
 	if err := projectViper.ReadInConfig(); err == nil {
 		// Merge project config into main viper (overrides home config)
-		for _, key := range projectViper.AllKeys() {
-			viper.Set(key, projectViper.Get(key))
-		}
+		mergeViperConfig(projectViper, viper.GetViper())
 		fmt.Fprintln(os.Stderr, "Using project config file:", projectViper.ConfigFileUsed())
-	} else if homeViper.ConfigFileUsed() != "" {
+	} else if homeViper != nil && homeViper.ConfigFileUsed() != "" {
 		fmt.Fprintln(os.Stderr, "Using home config file:", homeViper.ConfigFileUsed())
 	}
 }
