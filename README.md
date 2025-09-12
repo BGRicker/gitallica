@@ -43,6 +43,7 @@ cd gitallica
 go build -o gitallica .
 ```
 
+
 ## Available Commands
 
 | Command | Description | Research Basis |
