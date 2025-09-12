@@ -1,44 +1,38 @@
-# Gitallica Configuration File
-# Copy this to ~/.gitallica.yaml or .gitallica.yaml in your project root
+# Gitallica Configuration Example
+# This file demonstrates the configuration system with multiple paths
 
-# Default paths to analyze for each command
-# If not specified, all paths are analyzed
+# Author mappings for this project
+author_mappings:
+  - patterns: ["bgricker", "ben.ricker"]
+    canonical: "bgricker@gmail.com"
+
+# Path-specific configurations
 churn:
   paths:
-    - "src/"
-    - "lib/"
-    - "app/"
+    - "cmd/"
+    - "main.go"
 
-bus-factor:
+bus_factor:
   paths:
-    - "src/"
-    - "lib/"
+    - "cmd/"
+    - "main.go"
 
-test-ratio:
+dead_zones:
   paths:
-    - "src/"
-    - "test/"
-    - "spec/"
+    - "cmd/"
+    - "main.go"
+    - "docs/"
 
-dead-zones:
-  paths:
-    - "src/"
-    - "lib/"
+# Thresholds
+thresholds:
+  churn:
+    healthy: 5
+    warning: 15
+  bus_factor:
+    critical: 1
+    warning: 2
 
-commit-size:
-  paths:
-    - "src/"
-    - "lib/"
-
-# Global settings
+# Global defaults
 defaults:
   last: "6m"  # Default time window
   limit: 20  # Default number of results to show
-
-# Command-specific settings
-health-check:
-  paths:
-    - "src/"
-    - "lib/"
-  last: "3m"
-

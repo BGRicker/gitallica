@@ -30,17 +30,32 @@ func TestRepositoryConfigHierarchy(t *testing.T) {
 		t.Fatalf("Failed to create home dir: %v", err)
 	}
 
-	// Test case 1: Repository config should be found first
-	t.Run("repository config found first", func(t *testing.T) {
-		// Create repository config
-		repoConfigPath := filepath.Join(repoDir, ".gitallica.yml")
-		repoConfig := `test_setting: "repo_value"
-author_mappings:
-  - patterns: ["repo"]
-    canonical: "repo@example.com"`
-		err = os.WriteFile(repoConfigPath, []byte(repoConfig), 0644)
+	// Test case 1: Project config overrides home config
+	t.Run("project config overrides home config", func(t *testing.T) {
+		// Create home config
+		homeConfigPath := filepath.Join(homeDir, ".gitallica.yaml")
+		homeConfig := `test_setting: "home_value"
+global_setting: "home_global"
+churn:
+  paths:
+    - "home/path1"
+    - "home/path2"`
+		err = os.WriteFile(homeConfigPath, []byte(homeConfig), 0644)
 		if err != nil {
-			t.Fatalf("Failed to write repo config: %v", err)
+			t.Fatalf("Failed to write home config: %v", err)
+		}
+
+		// Create project config
+		projectConfigPath := filepath.Join(repoDir, ".gitallica.yml")
+		projectConfig := `test_setting: "project_value"
+project_setting: "project_specific"
+churn:
+  paths:
+    - "project/path1"
+    - "project/path2"`
+		err = os.WriteFile(projectConfigPath, []byte(projectConfig), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write project config: %v", err)
 		}
 
 		// Change to repo directory
@@ -55,37 +70,54 @@ author_mappings:
 			t.Fatalf("Failed to change to repo dir: %v", err)
 		}
 
-		// Reset viper and test config loading
+		// Reset viper and test config loading with hierarchy
 		viper.Reset()
 
-		// Test the config loading logic
-		viper.AddConfigPath(".")
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".gitallica")
+		// Mock the home directory for testing
+		originalHome := os.Getenv("HOME")
+		os.Setenv("HOME", homeDir)
+		defer os.Setenv("HOME", originalHome)
 
-		// Should find and load repository config
-		err = viper.ReadInConfig()
-		if err != nil {
-			t.Fatalf("Failed to read repository config: %v", err)
+		// Call the actual initConfig function
+		initConfig()
+
+		// Verify project config overrides home config
+		if viper.GetString("test_setting") != "project_value" {
+			t.Errorf("Expected test_setting to be 'project_value', got '%s'", viper.GetString("test_setting"))
 		}
 
-		// Verify repository config was loaded
-		if viper.GetString("test_setting") != "repo_value" {
-			t.Errorf("Expected test_setting to be 'repo_value', got '%s'", viper.GetString("test_setting"))
+		// Verify project-specific setting is available
+		if viper.GetString("project_setting") != "project_specific" {
+			t.Errorf("Expected project_setting to be 'project_specific', got '%s'", viper.GetString("project_setting"))
+		}
+
+		// Verify home-only setting is still available
+		if viper.GetString("global_setting") != "home_global" {
+			t.Errorf("Expected global_setting to be 'home_global', got '%s'", viper.GetString("global_setting"))
+		}
+
+		// Verify project config overrides home config for nested settings
+		projectPaths := viper.GetStringSlice("churn.paths")
+		expectedPaths := []string{"project/path1", "project/path2"}
+		if len(projectPaths) != len(expectedPaths) {
+			t.Errorf("Expected %d project paths, got %d", len(expectedPaths), len(projectPaths))
+		}
+		for i, path := range expectedPaths {
+			if i < len(projectPaths) && projectPaths[i] != path {
+				t.Errorf("Expected project path %d to be '%s', got '%s'", i, path, projectPaths[i])
+			}
 		}
 	})
 
-	// Test case 2: Global config should be used when no repository config exists
-	t.Run("global config fallback", func(t *testing.T) {
-		// Create global config
-		globalConfigPath := filepath.Join(homeDir, ".gitallica.yaml")
-		globalConfig := `test_setting: "global_value"
-author_mappings:
-  - patterns: ["global"]
-    canonical: "global@example.com"`
-		err = os.WriteFile(globalConfigPath, []byte(globalConfig), 0644)
+	// Test case 2: Home config fallback when no project config exists
+	t.Run("home config fallback", func(t *testing.T) {
+		// Create home config
+		homeConfigPath := filepath.Join(homeDir, ".gitallica.yaml")
+		homeConfig := `test_setting: "home_value"
+global_setting: "home_global"`
+		err = os.WriteFile(homeConfigPath, []byte(homeConfig), 0644)
 		if err != nil {
-			t.Fatalf("Failed to write global config: %v", err)
+			t.Fatalf("Failed to write home config: %v", err)
 		}
 
 		// Create empty repo directory (no config file)
@@ -104,32 +136,20 @@ author_mappings:
 		// Reset viper and test config loading
 		viper.Reset()
 
-		// Test the config loading logic - first try repository config
-		viper.AddConfigPath(".")
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".gitallica")
+		// Mock the home directory for testing
+		originalHome := os.Getenv("HOME")
+		os.Setenv("HOME", homeDir)
+		defer os.Setenv("HOME", originalHome)
 
-		// Should not find repository config
-		err = viper.ReadInConfig()
-		if err == nil {
-			t.Error("Expected error when reading non-existent repository config")
+		// Call the actual initConfig function
+		initConfig()
+
+		// Verify home config was loaded
+		if viper.GetString("test_setting") != "home_value" {
+			t.Errorf("Expected test_setting to be 'home_value', got '%s'", viper.GetString("test_setting"))
 		}
-
-		// Now try global config
-		viper.Reset()
-		viper.AddConfigPath(homeDir)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".gitallica")
-
-		// Should find and load global config
-		err = viper.ReadInConfig()
-		if err != nil {
-			t.Fatalf("Failed to read global config: %v", err)
-		}
-
-		// Verify global config was loaded
-		if viper.GetString("test_setting") != "global_value" {
-			t.Errorf("Expected test_setting to be 'global_value', got '%s'", viper.GetString("test_setting"))
+		if viper.GetString("global_setting") != "home_global" {
+			t.Errorf("Expected global_setting to be 'home_global', got '%s'", viper.GetString("global_setting"))
 		}
 	})
 
@@ -138,9 +158,7 @@ author_mappings:
 		// Create explicit config file
 		explicitConfigPath := filepath.Join(tempDir, "explicit.yaml")
 		explicitConfig := `test_setting: "explicit_value"
-author_mappings:
-  - patterns: ["explicit"]
-    canonical: "explicit@example.com"`
+explicit_setting: "explicit_only"`
 		err = os.WriteFile(explicitConfigPath, []byte(explicitConfig), 0644)
 		if err != nil {
 			t.Fatalf("Failed to write explicit config: %v", err)
@@ -149,19 +167,73 @@ author_mappings:
 		// Reset viper and test explicit config loading
 		viper.Reset()
 
-		// Test explicit config loading
-		viper.SetConfigFile(explicitConfigPath)
+		// Set the config file flag
+		cfgFile = explicitConfigPath
+		defer func() { cfgFile = "" }()
 
-		err = viper.ReadInConfig()
-		if err != nil {
-			t.Fatalf("Failed to read explicit config: %v", err)
-		}
+		// Call the actual initConfig function
+		initConfig()
 
 		// Verify explicit config was loaded
 		if viper.GetString("test_setting") != "explicit_value" {
 			t.Errorf("Expected test_setting to be 'explicit_value', got '%s'", viper.GetString("test_setting"))
 		}
+		if viper.GetString("explicit_setting") != "explicit_only" {
+			t.Errorf("Expected explicit_setting to be 'explicit_only', got '%s'", viper.GetString("explicit_setting"))
+		}
 	})
+}
+
+func TestUpwardConfigSearch(t *testing.T) {
+	// Test that config files are found in parent directories
+	tempDir, err := os.MkdirTemp("", "gitallica-upward-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create nested directory structure
+	parentDir := filepath.Join(tempDir, "parent")
+	childDir := filepath.Join(parentDir, "child")
+	err = os.MkdirAll(childDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create nested dirs: %v", err)
+	}
+
+	// Create config in parent directory
+	parentConfigPath := filepath.Join(parentDir, ".gitallica.yaml")
+	parentConfig := `test_setting: "parent_value"
+parent_only: "parent_specific"`
+	err = os.WriteFile(parentConfigPath, []byte(parentConfig), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write parent config: %v", err)
+	}
+
+	// Change to child directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current dir: %v", err)
+	}
+	defer os.Chdir(originalDir)
+
+	err = os.Chdir(childDir)
+	if err != nil {
+		t.Fatalf("Failed to change to child dir: %v", err)
+	}
+
+	// Reset viper and test config loading
+	viper.Reset()
+
+	// Call the actual initConfig function
+	initConfig()
+
+	// Verify parent config was found and loaded
+	if viper.GetString("test_setting") != "parent_value" {
+		t.Errorf("Expected test_setting to be 'parent_value', got '%s'", viper.GetString("test_setting"))
+	}
+	if viper.GetString("parent_only") != "parent_specific" {
+		t.Errorf("Expected parent_only to be 'parent_specific', got '%s'", viper.GetString("parent_only"))
+	}
 }
 
 func TestConfigFileExtensions(t *testing.T) {

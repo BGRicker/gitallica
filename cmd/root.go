@@ -24,6 +24,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -61,24 +62,58 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gitallica.yaml)")
 }
 
-// initConfig reads in config file if set.
+// initConfig reads in config file with proper hierarchy:
+// 1. Explicit config file (--config flag) - highest priority
+// 2. Project-specific .gitallica.yaml/.gitallica.yml in current directory or parent directories
+// 3. Home directory ~/.gitallica.yaml - lowest priority
 func initConfig() {
 	if cfgFile != "" {
-		// Use config file from the flag.
+		// Use config file from the flag (highest priority).
 		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".gitallica" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".gitallica")
+		if err := viper.ReadInConfig(); err == nil {
+			fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		}
+		return
 	}
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	// Configuration hierarchy: project-specific overrides home directory
+	// First, try to load home directory config as base (non-fatal)
+	var homeViper *viper.Viper
+	home, homeErr := os.UserHomeDir()
+	if homeErr == nil {
+		hv := viper.New()
+		hv.AddConfigPath(home)
+		hv.SetConfigType("yaml")
+		hv.SetConfigName(".gitallica")
+		if err := hv.ReadInConfig(); err == nil {
+			// Merge home config into main viper
+			mergeViperConfig(hv, viper.GetViper())
+		}
+		homeViper = hv
+	}
+
+	// Then try to load project-specific config (overrides home config)
+	// Search upwards from current directory to repository root
+	projectViper := viper.New()
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error: could not determine current working directory:", err)
+		return
+	}
+	
+	// Walk up the directory tree to find project config
+	for dir := currentDir; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		projectViper.AddConfigPath(dir)
+	}
+	
+	projectViper.SetConfigType("yaml")
+	projectViper.SetConfigName(".gitallica")
+	
+	if err := projectViper.ReadInConfig(); err == nil {
+		// Merge project config into main viper (overrides home config)
+		mergeViperConfig(projectViper, viper.GetViper())
+		fmt.Fprintln(os.Stderr, "Using project config file:", projectViper.ConfigFileUsed())
+	} else if homeViper != nil && homeViper.ConfigFileUsed() != "" {
+		fmt.Fprintln(os.Stderr, "Using home config file:", homeViper.ConfigFileUsed())
 	}
 }

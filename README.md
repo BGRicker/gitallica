@@ -126,19 +126,29 @@ defaults:
 
 **Configuration Priority:**
 1. Command-line flags (highest priority)
-2. Configuration file settings
-3. Default values (lowest priority)
+2. Project-specific `.gitallica.yaml` or `.gitallica.yml` in current directory
+3. Home directory `~/.gitallica.yaml` (lowest priority)
+4. Default values (fallback)
 
 **Setup:**
 ```bash
-# Copy example config to your home directory
+# Global configuration (applies to all projects)
 cp .gitallica.yaml.example ~/.gitallica.yaml
+
+# Project-specific configuration (overrides global settings)
+cp .gitallica.yaml.example .gitallica.yaml
 
 # Customize your paths and settings
 # Then run commands without specifying paths
-gitallica churn  # Uses your config
-gitallica churn --path README.md  # Overrides config
+gitallica churn  # Uses project config, falls back to global config
+gitallica churn --path README.md  # Overrides all config files
 ```
+
+**Configuration Hierarchy:**
+- **Project-specific**: `.gitallica.yaml` or `.gitallica.yml` in your project root
+- **Global**: `~/.gitallica.yaml` in your home directory  
+- **Explicit**: `--config /path/to/config.yaml` flag
+- **CLI flags**: Always override configuration files
 
 ## Documentation
 
