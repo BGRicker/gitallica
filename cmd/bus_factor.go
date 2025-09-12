@@ -456,7 +456,7 @@ func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommi
 }
 
 // buildFileAuthorMap efficiently builds a map of file authors using a single git traversal
-func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathArg string, fileAuthors map[string]map[string]int) error {
+func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since time.Time, pathFilters []string, fileAuthors map[string]map[string]int) error {
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return fmt.Errorf("could not get commits: %v", err)
@@ -499,7 +499,7 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 				}
 				
 				// Apply path filter if specified
-				if pathArg != "" && !matchesPathFilter(change.To.Name, pathArg) {
+				if !matchesPathFilter(change.To.Name, pathFilters) {
 					continue
 				}
 				
@@ -514,7 +514,7 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 		} else {
 			// Initial commit - all files are authored by this commit
 			err = tree.Files().ForEach(func(f *object.File) error {
-				if pathArg != "" && !matchesPathFilter(f.Name, pathArg) {
+				if !matchesPathFilter(f.Name, pathFilters) {
 					return nil
 				}
 				
@@ -564,7 +564,7 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []strin
 	
 	// Build comprehensive file author map efficiently
 	fileAuthors := make(map[string]map[string]int) // file -> author -> lines contributed
-	err = buildFileAuthorMap(repo, ref, since, pathArg, fileAuthors)
+	err = buildFileAuthorMap(repo, ref, since, pathFilters, fileAuthors)
 	if err != nil {
 		return nil, fmt.Errorf("error building file author map: %v", err)
 	}
