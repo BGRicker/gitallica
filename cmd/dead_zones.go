@@ -354,7 +354,7 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathArg string) (*D
 			// File exists but wasn't modified in the analysis window
 			// Use a reasonable fallback - assume it's old but not infinitely old
 			// This avoids expensive individual git history lookups for every file
-			lastModified = time.Now().AddDate(-2, 0, 0) // Assume 2 years old
+			lastModified = time.Now().Add(-DefaultFallbackFileAge)
 		}
 		
 		ageInMonths := calculateFileAge(lastModified, now)

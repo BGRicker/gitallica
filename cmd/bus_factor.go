@@ -79,15 +79,13 @@ func normalizeAuthorName(name, email string) string {
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
 	cleanName := strings.ToLower(strings.TrimSpace(name))
 	
-	// Handle common email variations for the same person
-	if strings.Contains(cleanEmail, "bgricker") || strings.Contains(cleanEmail, "ben.ricker") {
-		return "bgricker@gmail.com"
-	}
-	if strings.Contains(cleanEmail, "caleb") || strings.Contains(cleanEmail, "crutan") {
-		return "caleb.rutan@deptagency.com"
-	}
-	if strings.Contains(cleanEmail, "isaac") || strings.Contains(cleanEmail, "priestley") {
-		return "isaac.priestley@deptagency.com"
+	// Handle common email variations for the same person using configurable mappings
+	for _, mapping := range DefaultAuthorMappings {
+		for _, pattern := range mapping.Patterns {
+			if strings.Contains(cleanEmail, pattern) || strings.Contains(cleanName, pattern) {
+				return mapping.Canonical
+			}
+		}
 	}
 	
 	// Check if email looks generic or invalid
