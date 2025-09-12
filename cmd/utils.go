@@ -282,7 +282,7 @@ func expandTimeWindow(lastArg string) string {
 func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, pathFilters []string, source string) {
 	// Print config file information if available
 	if viper.ConfigFileUsed() != "" {
-		fmt.Fprintf(os.Stderr, "Using project config file: %s\n", viper.ConfigFileUsed())
+		fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
 	}
 	
 	// Print command scope header
@@ -293,7 +293,11 @@ func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, p
 	
 	// Print path filters with source
 	if len(pathFilters) > 0 {
-		fmt.Fprintf(os.Stderr, "Path filter: %s %s\n", strings.Join(pathFilters, ", "), source)
+		label := "Path filter:"
+		if len(pathFilters) > 1 {
+			label = "Path filters:"
+		}
+		fmt.Fprintf(os.Stderr, "%s %s %s\n", label, strings.Join(pathFilters, ", "), source)
 	} else {
 		fmt.Fprintf(os.Stderr, "Path filter: all files\n")
 	}

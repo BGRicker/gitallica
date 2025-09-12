@@ -112,7 +112,7 @@ func initConfig() {
 	if err := projectViper.ReadInConfig(); err == nil {
 		// Merge project config into main viper (overrides home config)
 		mergeViperConfig(projectViper, viper.GetViper())
-		fmt.Fprintln(os.Stderr, "Using project config file:", projectViper.ConfigFileUsed())
+		fmt.Fprintln(os.Stderr, "Using config file:", projectViper.ConfigFileUsed())
 	} else if homeViper != nil && homeViper.ConfigFileUsed() != "" {
 		fmt.Fprintln(os.Stderr, "Using home config file:", homeViper.ConfigFileUsed())
 	}
