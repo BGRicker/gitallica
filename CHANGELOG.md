@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Global defaults for `last` and `limit` settings
   - Configuration priority: CLI flags > config file > defaults
   - Example configuration file provided (`.gitallica.yaml.example`)
+- **Configuration Visibility**: All commands now display active configuration details
+  - Shows config file path being used
+  - Displays analysis scope with expanded time windows (e.g., "last 7 days" instead of "7d")
+  - Indicates path filter source (CLI vs config) with proper pluralization
+  - Example: `Path filters: src/, lib/ (from CLI)` vs `Path filter: src/ (from config)`
 - **Enhanced CLI Experience**: Improved command-line interface with better path handling
   - Cross-platform path normalization for Windows/macOS/Linux compatibility
   - Backward compatibility maintained for single-path usage
@@ -23,15 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Path Filtering**: Enhanced from single-path to multi-path support across all commands
 - **Configuration Management**: Centralized configuration system using Viper
+- **Configuration Precedence**: CLI flags now properly override config file settings
+- **Time Window Display**: Abbreviated formats (7d, 2m, 1y) now expand to readable format
+- **Command Name Formatting**: Hyphenated commands (bus-factor) display as "Bus Factor Analysis Scope"
+- **Path Filter Labels**: Dynamic singular/plural based on number of paths specified
 - **Documentation**: Updated README with comprehensive configuration examples and setup instructions
+
+### Fixed
+- **Deprecated Function**: Replaced `strings.Title` with custom `titleCase` function for Go 1.18+ compatibility
+- **Invalid Time Input**: Fallback now returns original string instead of misleading "last xyz"
+- **Config File Messages**: Generic "Using config file:" instead of assuming "project" config
 
 ### Technical Implementation
 - **Path Processing**: New `matchesPathFilter()` and `matchesSinglePathFilter()` utilities
 - **Configuration Integration**: `getConfigPaths()` helper for unified config/CLI handling
 - **Cross-Platform Support**: Proper path handling for different operating systems
 - **Backward Compatibility**: All existing single-path usage continues to work unchanged
-
-## [Unreleased]
 
 ## [1.0.0] - 2025-01-XX
 

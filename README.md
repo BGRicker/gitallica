@@ -155,7 +155,7 @@ Every command now shows you exactly what configuration is being used:
 
 ```bash
 ❯ gitallica churn --last 7d --path README.md
-Using project config file: /Users/benricker/code/gitallica/.gitallica.yaml
+Using config file: /Users/benricker/code/gitallica/.gitallica.yaml
 === Churn Analysis Scope ===
 Time window: last 7 days
 Path filter: README.md (from CLI)
