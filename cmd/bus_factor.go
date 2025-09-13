@@ -795,7 +795,7 @@ Risk Levels:
 Based on Martin Fowler's collective ownership principles and industry research.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "bus-factor.last")
 		pathFilters, source := getConfigPaths(cmd, "bus-factor.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 

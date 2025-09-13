@@ -506,7 +506,7 @@ easy to read makes it easier to write." — Robert C. Martin, Clean Code`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		pathFilters, source := getConfigPaths(cmd, "onboarding-footprint.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "onboarding-footprint.last")
 		limit, _ := cmd.Flags().GetInt("limit")
 		commitLimit, _ := cmd.Flags().GetInt("commit-limit")
 

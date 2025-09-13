@@ -453,7 +453,7 @@ Classifications:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		pathFilters, source := getConfigPaths(cmd, "ownership-clarity.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "ownership-clarity.last")
 		limit, _ := cmd.Flags().GetInt("limit")
 
 		// Print configuration scope

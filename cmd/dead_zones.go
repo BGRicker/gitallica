@@ -496,7 +496,7 @@ Risk Levels:
 Based on Clean Code principles - untouched code becomes a liability over time.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "dead-zones.last")
 		pathFilters, source := getConfigPaths(cmd, "dead-zones.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 

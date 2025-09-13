@@ -54,7 +54,7 @@ var survivalCmd = &cobra.Command{
 Helps spot unstable areas where code gets rewritten too frequently.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "survival.last")
 		pathFilters, source := getConfigPaths(cmd, "survival.paths")
 		debugArg, _ := cmd.Flags().GetBool("debug")
 

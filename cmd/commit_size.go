@@ -245,7 +245,7 @@ Risk Levels:
 Thresholds are based on research showing reviews are most effective under 400 lines.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "commit-size.last")
 		pathFilters, source := getConfigPaths(cmd, "commit-size.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		minRiskArg, _ := cmd.Flags().GetString("min-risk")

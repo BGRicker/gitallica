@@ -52,7 +52,7 @@ This helps you understand whether your repo is growing sustainably
 or accumulating complexity.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "churn.last")
 		pathFilters, source := getConfigPaths(cmd, "churn.paths")
 
 		// Print configuration scope

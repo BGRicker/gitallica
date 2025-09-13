@@ -94,7 +94,7 @@ The analysis identifies:
 		}
 
 		pathFilters, source := getConfigPaths(cmd, "change-lead-time.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "change-lead-time.last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		methodArg, _ := cmd.Flags().GetString("method")
 

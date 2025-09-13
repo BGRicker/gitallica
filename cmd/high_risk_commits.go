@@ -74,7 +74,7 @@ architectural consideration.`,
 		}
 
 		pathFilters, source := getConfigPaths(cmd, "high-risk-commits.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "high-risk-commits.last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 
 		// Print configuration scope

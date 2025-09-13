@@ -556,7 +556,7 @@ The health check covers:
 Issues are ranked by severity and categorized for easy prioritization.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "health-check.last")
 		pathFilters, source := getConfigPaths(cmd, "health-check.paths")
 
 		// Print configuration scope

@@ -90,7 +90,7 @@ The analysis identifies:
 			return fmt.Errorf("could not open repository: %v", err)
 		}
 
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "long-lived-branches.last")
 		pathFilters, source := getConfigPaths(cmd, "long-lived-branches.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showMergedArg, _ := cmd.Flags().GetBool("show-merged")

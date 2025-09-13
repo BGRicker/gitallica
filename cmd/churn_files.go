@@ -278,7 +278,7 @@ Thresholds:
 - Warning: >20% churn`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "churn-files.last")
 		pathFilters, source := getConfigPaths(cmd, "churn-files.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showDirsArg, _ := cmd.Flags().GetBool("directories")

@@ -229,6 +229,31 @@ func getConfigPaths(cmd *cobra.Command, configKey string) ([]string, string) {
 	return []string{}, ""
 }
 
+// getConfigLast returns the 'last' parameter from CLI flags, config file, or defaults
+func getConfigLast(cmd *cobra.Command, configKey string) string {
+	// First try to get from command line flags (highest priority)
+	lastArg, _ := cmd.Flags().GetString("last")
+	if lastArg != "" {
+		return lastArg
+	}
+
+	// Fall back to config file
+	if viper.IsSet(configKey) {
+		if last := viper.GetString(configKey); last != "" {
+			return last
+		}
+	}
+
+	// Fall back to global defaults
+	if viper.IsSet("defaults.last") {
+		if last := viper.GetString("defaults.last"); last != "" {
+			return last
+		}
+	}
+
+	return ""
+}
+
 // titleCase converts a string to title case (first letter of each word capitalized)
 func titleCase(s string) string {
 	if s == "" {

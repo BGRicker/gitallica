@@ -399,7 +399,7 @@ Supports multiple frameworks:
 			log.Fatalf("Could not open repository: %v", err)
 		}
 
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "component-creation.last")
 		frameworkArg, _ := cmd.Flags().GetString("framework")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 

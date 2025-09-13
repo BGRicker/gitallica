@@ -429,7 +429,7 @@ weak modularity and eroded boundaries. High entropy signals mixed concerns
 and unclear architectural boundaries.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "directory-entropy.last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 
 		// Parse --last argument
