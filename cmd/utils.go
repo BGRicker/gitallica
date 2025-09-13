@@ -219,6 +219,13 @@ func getConfigPaths(cmd *cobra.Command, configKey string) ([]string, string) {
 		}
 	}
 
+	// Fall back to global defaults
+	if viper.IsSet("defaults.paths") {
+		if paths := viper.GetStringSlice("defaults.paths"); len(paths) > 0 {
+			return paths, "(from defaults)"
+		}
+	}
+
 	return []string{}, ""
 }
 
