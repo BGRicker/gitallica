@@ -92,7 +92,7 @@ func TestIsTestFile(t *testing.T) {
 			filePath: "src/components/Button.spec.js",
 			expected: true,
 		},
-		
+
 		// Negative cases - should NOT be detected as test files
 		{
 			name:     "Regular Go file",
@@ -124,7 +124,7 @@ func TestIsTestFile(t *testing.T) {
 			filePath: "package.json",
 			expected: false,
 		},
-		
+
 		// False positive prevention cases
 		{
 			name:     "testdata.go should not be detected",
@@ -137,7 +137,7 @@ func TestIsTestFile(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "latest.go should not be detected", 
+			name:     "latest.go should not be detected",
 			filePath: "src/latest.go",
 			expected: false,
 		},
@@ -256,11 +256,11 @@ func TestCalculateTestRatio(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ratio, status := calculateTestRatio(tt.testLOC, tt.sourceLOC)
-			
+
 			if ratio != tt.expectedRatio {
 				t.Errorf("calculateTestRatio() ratio = %v, want %v", ratio, tt.expectedRatio)
 			}
-			
+
 			if status != tt.expectedStatus {
 				t.Errorf("calculateTestRatio() status = %v, want %v", status, tt.expectedStatus)
 			}
@@ -270,63 +270,63 @@ func TestCalculateTestRatio(t *testing.T) {
 
 func TestClassifyTestRatio(t *testing.T) {
 	tests := []struct {
-		name         string
-		ratio        float64
+		name           string
+		ratio          float64
 		expectedStatus string
-		expectedRec  string
+		expectedRec    string
 	}{
 		{
-			name:         "critical - no tests",
-			ratio:        0.0,
+			name:           "critical - no tests",
+			ratio:          0.0,
 			expectedStatus: "Critical",
-			expectedRec:  "Urgent: add comprehensive test coverage",
+			expectedRec:    "Urgent: add comprehensive test coverage",
 		},
 		{
-			name:         "warning - low coverage",
-			ratio:        0.5,
-			expectedStatus: "Warning", 
-			expectedRec:  "Increase test coverage significantly",
+			name:           "warning - low coverage",
+			ratio:          0.5,
+			expectedStatus: "Warning",
+			expectedRec:    "Increase test coverage significantly",
 		},
 		{
-			name:         "caution - below ideal",
-			ratio:        0.8,
+			name:           "caution - below ideal",
+			ratio:          0.8,
 			expectedStatus: "Caution",
-			expectedRec:  "Consider adding more tests",
+			expectedRec:    "Consider adding more tests",
 		},
 		{
-			name:         "healthy - ideal ratio",
-			ratio:        1.0,
+			name:           "healthy - ideal ratio",
+			ratio:          1.0,
 			expectedStatus: "Healthy",
-			expectedRec:  "Good balance of tests and source code",
+			expectedRec:    "Good balance of tests and source code",
 		},
 		{
-			name:         "excellent - strong coverage",
-			ratio:        1.5,
+			name:           "excellent - strong coverage",
+			ratio:          1.5,
 			expectedStatus: "Excellent",
-			expectedRec:  "Excellent test coverage",
+			expectedRec:    "Excellent test coverage",
 		},
 		{
-			name:         "excellent - maximum recommended",
-			ratio:        2.0,
+			name:           "excellent - maximum recommended",
+			ratio:          2.0,
 			expectedStatus: "Excellent",
-			expectedRec:  "Excellent test coverage",
+			expectedRec:    "Excellent test coverage",
 		},
 		{
-			name:         "caution - excessive tests",
-			ratio:        3.0,
+			name:           "caution - excessive tests",
+			ratio:          3.0,
 			expectedStatus: "Caution",
-			expectedRec:  "Consider reviewing test complexity",
+			expectedRec:    "Consider reviewing test complexity",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			status, rec := classifyTestRatio(tt.ratio)
-			
+
 			if status != tt.expectedStatus {
 				t.Errorf("classifyTestRatio() status = %v, want %v", status, tt.expectedStatus)
 			}
-			
+
 			if rec != tt.expectedRec {
 				t.Errorf("classifyTestRatio() recommendation = %v, want %v", rec, tt.expectedRec)
 			}
@@ -397,7 +397,7 @@ func TestTestRatioThresholds(t *testing.T) {
 	if testRatioTargetThreshold != 1.0 {
 		t.Errorf("Expected target test ratio threshold to be 1.0, got %f", testRatioTargetThreshold)
 	}
-	
+
 	if testRatioMinimumThreshold != 0.5 {
 		t.Errorf("Expected minimum test ratio threshold to be 0.5, got %f", testRatioMinimumThreshold)
 	}
@@ -413,7 +413,7 @@ func TestTestRatioEdgeCases(t *testing.T) {
 			t.Errorf("Expected 'Unknown' status for zero source LOC, got %s", status)
 		}
 	})
-	
+
 	t.Run("very large numbers", func(t *testing.T) {
 		ratio, status := calculateTestRatio(1000000, 1000000)
 		if ratio != 1.0 {
@@ -423,7 +423,7 @@ func TestTestRatioEdgeCases(t *testing.T) {
 			t.Errorf("Expected 'Healthy' status for 1:1 ratio, got %s", status)
 		}
 	})
-	
+
 	t.Run("small numbers precision", func(t *testing.T) {
 		ratio, status := calculateTestRatio(1, 1)
 		if ratio != 1.0 {
@@ -482,4 +482,3 @@ func TestFloatEquals(t *testing.T) {
 		})
 	}
 }
-

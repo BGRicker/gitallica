@@ -36,9 +36,9 @@ import (
 const (
 	// Test ratio thresholds based on findings from the Team Software Process (TSP) study:
 	// Watts S. Humphrey, "A Discipline for Software Engineering," Addison-Wesley, 1995.
-	testRatioTargetThreshold = 1.0  // 1:1 ratio is target
+	testRatioTargetThreshold  = 1.0 // 1:1 ratio is target
 	testRatioMinimumThreshold = 0.5 // Below 0.5:1 needs attention
-	
+
 	// Float comparison tolerance to handle precision issues
 	floatTolerance = 1e-9
 )
@@ -52,17 +52,17 @@ func floatEquals(a, b float64) bool {
 
 // TestRatioStats represents the test-to-code ratio analysis
 type TestRatioStats struct {
-	TestLOC       int
-	SourceLOC     int
-	OtherLOC      int
-	TotalLOC      int
-	TestRatio     float64
-	Status        string
+	TestLOC        int
+	SourceLOC      int
+	OtherLOC       int
+	TotalLOC       int
+	TestRatio      float64
+	Status         string
 	Recommendation string
-	TestFiles     int
-	SourceFiles   int
-	OtherFiles    int
-	TotalFiles    int
+	TestFiles      int
+	SourceFiles    int
+	OtherFiles     int
+	TotalFiles     int
 }
 
 // isTestFile determines if a file path represents a test file based on common patterns
@@ -71,17 +71,17 @@ func isTestFile(filePath string) bool {
 	lowerPath := strings.ToLower(filePath)
 	fileName := filepath.Base(lowerPath)
 	dir := filepath.Dir(lowerPath)
-	
+
 	// Strict filename patterns
 	if strings.HasSuffix(fileName, "_test.go") { // Go
 		return true
 	}
-	if strings.HasSuffix(fileName, ".test.js") || strings.HasSuffix(fileName, ".test.jsx") || 
-	   strings.HasSuffix(fileName, ".test.ts") || strings.HasSuffix(fileName, ".test.tsx") {
+	if strings.HasSuffix(fileName, ".test.js") || strings.HasSuffix(fileName, ".test.jsx") ||
+		strings.HasSuffix(fileName, ".test.ts") || strings.HasSuffix(fileName, ".test.tsx") {
 		return true
 	}
 	if strings.HasSuffix(fileName, ".spec.js") || strings.HasSuffix(fileName, ".spec.jsx") ||
-	   strings.HasSuffix(fileName, ".spec.ts") || strings.HasSuffix(fileName, ".spec.tsx") {
+		strings.HasSuffix(fileName, ".spec.ts") || strings.HasSuffix(fileName, ".spec.tsx") {
 		return true
 	}
 	if strings.HasSuffix(fileName, "_spec.rb") { // Ruby RSpec
@@ -96,10 +96,10 @@ func isTestFile(filePath string) bool {
 	}
 	// Java/C#: *Test.java, *Tests.java, *Test.cs, *Tests.cs
 	if strings.HasSuffix(fileName, "test.java") || strings.HasSuffix(fileName, "tests.java") ||
-	   strings.HasSuffix(fileName, "test.cs") || strings.HasSuffix(fileName, "tests.cs") {
+		strings.HasSuffix(fileName, "test.cs") || strings.HasSuffix(fileName, "tests.cs") {
 		return true
 	}
-	
+
 	// Directory-based: match whole segments
 	segments := strings.Split(strings.Trim(dir, string(filepath.Separator)), string(filepath.Separator))
 	for i := range segments {
@@ -108,7 +108,7 @@ func isTestFile(filePath string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -119,7 +119,7 @@ func classifyFileType(filePath string) string {
 	if isTest {
 		return "test"
 	}
-	
+
 	// Check if it's a source code file
 	ext := strings.ToLower(filepath.Ext(filePath))
 	sourceExtensions := []string{
@@ -127,13 +127,13 @@ func classifyFileType(filePath string) string {
 		".py", ".rb", ".java", ".cs", ".cpp", ".c", ".h",
 		".php", ".swift", ".kt", ".scala", ".rs", ".dart",
 	}
-	
+
 	for _, sourceExt := range sourceExtensions {
 		if ext == sourceExt {
 			return "source"
 		}
 	}
-	
+
 	return "other"
 }
 
@@ -142,7 +142,7 @@ func calculateTestRatio(testLOC, sourceLOC int) (float64, string) {
 	if sourceLOC == 0 {
 		return 0.0, "Unknown"
 	}
-	
+
 	ratio := float64(testLOC) / float64(sourceLOC)
 	status, _ := classifyTestRatio(ratio)
 	return ratio, status
@@ -174,40 +174,40 @@ func analyzeTestRatio(repo *git.Repository, pathFilters []string) (*TestRatioSta
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
 	}
-	
+
 	headCommit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD commit: %v", err)
 	}
-	
+
 	tree, err := headCommit.Tree()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
-	
+
 	stats := &TestRatioStats{}
-	
+
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
 		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
-		
+
 		// Skip binary files
 		isBinary, err := f.IsBinary()
 		if err != nil || isBinary {
 			return nil
 		}
-		
+
 		// Get file content and count lines
 		content, err := f.Contents()
 		if err != nil {
 			return nil
 		}
-		
+
 		lineCount := countLines(content)
 		fileType := classifyFileType(f.Name)
-		
+
 		switch fileType {
 		case "test":
 			stats.TestLOC += lineCount
@@ -219,19 +219,19 @@ func analyzeTestRatio(repo *git.Repository, pathFilters []string) (*TestRatioSta
 			stats.OtherLOC += lineCount
 			stats.OtherFiles++
 		}
-		
+
 		stats.TotalFiles++
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing files: %v", err)
 	}
-	
+
 	stats.TotalLOC = stats.TestLOC + stats.SourceLOC + stats.OtherLOC
 	stats.TestRatio, stats.Status = calculateTestRatio(stats.TestLOC, stats.SourceLOC)
 	_, stats.Recommendation = classifyTestRatio(stats.TestRatio)
-	
+
 	return stats, nil
 }
 
@@ -246,36 +246,36 @@ func printTestRatioStats(stats *TestRatioStats, pathFilters []string) {
 	fmt.Printf("Test files: %d (%d LOC)\n", stats.TestFiles, stats.TestLOC)
 	fmt.Printf("Other files: %d (%d LOC)\n", stats.OtherFiles, stats.OtherLOC)
 	fmt.Println()
-	
+
 	fmt.Printf("Test-to-Code Ratio: %.2f:1 — %s\n", stats.TestRatio, stats.Status)
 	fmt.Printf("Recommendation: %s\n", stats.Recommendation)
 	fmt.Println()
 	fmt.Println("Context:", testRatioBenchmarkContext)
 	fmt.Println()
-	
+
 	// Provide detailed analysis
 	fmt.Printf("Detailed Breakdown:\n")
 	if stats.SourceLOC > 0 {
 		testPercentage := (float64(stats.TestLOC) / float64(stats.SourceLOC)) * 100
 		fmt.Printf("  Test coverage: %.1f%% (test LOC / source LOC)\n", testPercentage)
 	}
-	
+
 	if stats.TotalLOC > 0 {
 		sourcePercentage := (float64(stats.SourceLOC) / float64(stats.TotalLOC)) * 100
 		testPercentage := (float64(stats.TestLOC) / float64(stats.TotalLOC)) * 100
 		otherPercentage := (float64(stats.OtherLOC) / float64(stats.TotalLOC)) * 100
-		
+
 		fmt.Printf("  Source code: %.1f%% of total codebase\n", sourcePercentage)
 		fmt.Printf("  Test code: %.1f%% of total codebase\n", testPercentage)
 		fmt.Printf("  Other files: %.1f%% of total codebase\n", otherPercentage)
 	}
-	
+
 	// Provide actionable insights
 	fmt.Printf("\nHealthy Targets (based on Clean Code principles):\n")
 	fmt.Printf("  • Ideal ratio: 1:1 to 2:1 (test:source)\n")
 	fmt.Printf("  • Minimum acceptable: 0.75:1\n")
 	fmt.Printf("  • Current ratio: %.2f:1\n", stats.TestRatio)
-	
+
 	if stats.TestRatio < testRatioTargetThreshold && stats.SourceLOC > 0 {
 		needed := int(float64(stats.SourceLOC)*testRatioTargetThreshold) - stats.TestLOC
 		if needed > 0 {
@@ -306,7 +306,7 @@ Classifications:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		pathFilters, source := getConfigPaths(cmd, "test-ratio.paths")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "test-ratio", "", pathFilters, source)
 

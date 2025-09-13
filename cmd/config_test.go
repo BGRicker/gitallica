@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -290,4 +291,262 @@ func TestConfigFileExtensions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetConfigPathsHierarchy(t *testing.T) {
+	// Create temporary directories for testing
+	tempDir, err := os.MkdirTemp("", "gitallica-paths-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create subdirectory to simulate repository
+	repoDir := filepath.Join(tempDir, "repo")
+	err = os.Mkdir(repoDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create repo dir: %v", err)
+	}
+
+	// Test case 1: Command-specific config takes precedence over defaults
+	t.Run("command-specific config overrides defaults", func(t *testing.T) {
+		// Create config with both command-specific and default paths
+		configPath := filepath.Join(repoDir, ".gitallica.yaml")
+		config := `churn:
+  paths:
+    - "cmd/"
+    - "main.go"
+    
+defaults:
+  paths:
+    - "app/Module1"
+    - "app/Module2"`
+		err = os.WriteFile(configPath, []byte(config), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write config: %v", err)
+		}
+
+		// Change to repo directory
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current dir: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(repoDir)
+		if err != nil {
+			t.Fatalf("Failed to change to repo dir: %v", err)
+		}
+
+		// Reset viper and load config with clean environment
+		viper.Reset()
+
+		// Mock empty home directory to avoid loading home config
+		originalHome := os.Getenv("HOME")
+		emptyHome := filepath.Join(tempDir, "empty-home")
+		os.Mkdir(emptyHome, 0755)
+		os.Setenv("HOME", emptyHome)
+		defer os.Setenv("HOME", originalHome)
+
+		initConfig()
+
+		// Create mock command
+		mockCmd := &cobra.Command{}
+		mockCmd.Flags().StringSlice("path", []string{}, "test path flag")
+
+		// Test getConfigPaths
+		paths, source := getConfigPaths(mockCmd, "churn.paths")
+		expectedPaths := []string{"cmd/", "main.go"}
+
+		if len(paths) != len(expectedPaths) {
+			t.Errorf("Expected %d paths, got %d", len(expectedPaths), len(paths))
+		}
+
+		for i, expected := range expectedPaths {
+			if i < len(paths) && paths[i] != expected {
+				t.Errorf("Expected path %d to be '%s', got '%s'", i, expected, paths[i])
+			}
+		}
+
+		if source != "(from config)" {
+			t.Errorf("Expected source to be '(from config)', got '%s'", source)
+		}
+	})
+
+	// Test case 2: Defaults used when no command-specific config exists
+	t.Run("defaults used when no command-specific config", func(t *testing.T) {
+		// Create config with only defaults
+		configPath := filepath.Join(repoDir, ".gitallica.yaml")
+		config := `defaults:
+  paths:
+    - "src/modules"
+    - "lib/"`
+		err = os.WriteFile(configPath, []byte(config), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write config: %v", err)
+		}
+
+		// Change to repo directory
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current dir: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(repoDir)
+		if err != nil {
+			t.Fatalf("Failed to change to repo dir: %v", err)
+		}
+
+		// Reset viper and load config with clean environment
+		viper.Reset()
+
+		// Mock empty home directory to avoid loading home config
+		originalHome := os.Getenv("HOME")
+		emptyHome := filepath.Join(tempDir, "empty-home2")
+		os.Mkdir(emptyHome, 0755)
+		os.Setenv("HOME", emptyHome)
+		defer os.Setenv("HOME", originalHome)
+
+		initConfig()
+
+		// Create mock command
+		mockCmd := &cobra.Command{}
+		mockCmd.Flags().StringSlice("path", []string{}, "test path flag")
+
+		// Test getConfigPaths for a command without specific config
+		paths, source := getConfigPaths(mockCmd, "bus-factor.paths")
+		expectedPaths := []string{"src/modules", "lib/"}
+
+		if len(paths) != len(expectedPaths) {
+			t.Errorf("Expected %d paths, got %d", len(expectedPaths), len(paths))
+		}
+
+		for i, expected := range expectedPaths {
+			if i < len(paths) && paths[i] != expected {
+				t.Errorf("Expected path %d to be '%s', got '%s'", i, expected, paths[i])
+			}
+		}
+
+		if source != "(from defaults)" {
+			t.Errorf("Expected source to be '(from defaults)', got '%s'", source)
+		}
+	})
+
+	// Test case 3: CLI flags override everything
+	t.Run("CLI flags override config and defaults", func(t *testing.T) {
+		// Create config with both command-specific and default paths
+		configPath := filepath.Join(repoDir, ".gitallica.yaml")
+		config := `churn:
+  paths:
+    - "cmd/"
+    
+defaults:
+  paths:
+    - "app/"`
+		err = os.WriteFile(configPath, []byte(config), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write config: %v", err)
+		}
+
+		// Change to repo directory
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current dir: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(repoDir)
+		if err != nil {
+			t.Fatalf("Failed to change to repo dir: %v", err)
+		}
+
+		// Reset viper and load config with clean environment
+		viper.Reset()
+
+		// Mock empty home directory to avoid loading home config
+		originalHome := os.Getenv("HOME")
+		emptyHome := filepath.Join(tempDir, "empty-home3")
+		os.Mkdir(emptyHome, 0755)
+		os.Setenv("HOME", emptyHome)
+		defer os.Setenv("HOME", originalHome)
+
+		initConfig()
+
+		// Create mock command with CLI flags set
+		mockCmd := &cobra.Command{}
+		mockCmd.Flags().StringSlice("path", []string{}, "test path flag")
+
+		// Set CLI flag
+		err = mockCmd.Flags().Set("path", "test/")
+		if err != nil {
+			t.Fatalf("Failed to set CLI path flag: %v", err)
+		}
+
+		// Test getConfigPaths
+		paths, source := getConfigPaths(mockCmd, "churn.paths")
+		expectedPaths := []string{"test/"}
+
+		if len(paths) != len(expectedPaths) {
+			t.Errorf("Expected %d paths, got %d", len(expectedPaths), len(paths))
+		}
+
+		if len(paths) > 0 && paths[0] != expectedPaths[0] {
+			t.Errorf("Expected path to be '%s', got '%s'", expectedPaths[0], paths[0])
+		}
+
+		if source != "(from CLI)" {
+			t.Errorf("Expected source to be '(from CLI)', got '%s'", source)
+		}
+	})
+
+	// Test case 4: Empty result when no paths configured anywhere
+	t.Run("empty result when no paths configured", func(t *testing.T) {
+		// Create empty config
+		configPath := filepath.Join(repoDir, ".gitallica.yaml")
+		config := `# Empty config`
+		err = os.WriteFile(configPath, []byte(config), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write config: %v", err)
+		}
+
+		// Change to repo directory
+		originalDir, err := os.Getwd()
+		if err != nil {
+			t.Fatalf("Failed to get current dir: %v", err)
+		}
+		defer os.Chdir(originalDir)
+
+		err = os.Chdir(repoDir)
+		if err != nil {
+			t.Fatalf("Failed to change to repo dir: %v", err)
+		}
+
+		// Reset viper and load config with clean environment
+		viper.Reset()
+
+		// Mock empty home directory to avoid loading home config
+		originalHome := os.Getenv("HOME")
+		emptyHome := filepath.Join(tempDir, "empty-home4")
+		os.Mkdir(emptyHome, 0755)
+		os.Setenv("HOME", emptyHome)
+		defer os.Setenv("HOME", originalHome)
+
+		initConfig()
+
+		// Create mock command
+		mockCmd := &cobra.Command{}
+		mockCmd.Flags().StringSlice("path", []string{}, "test path flag")
+
+		// Test getConfigPaths
+		paths, source := getConfigPaths(mockCmd, "nonexistent.paths")
+
+		if len(paths) != 0 {
+			t.Errorf("Expected 0 paths, got %d", len(paths))
+		}
+
+		if source != "" {
+			t.Errorf("Expected empty source, got '%s'", source)
+		}
+	})
 }

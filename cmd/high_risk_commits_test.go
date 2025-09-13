@@ -66,11 +66,11 @@ func TestHighRiskCommitsThresholds(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			risk, reason := classifyCommitRisk(tt.linesChanged, tt.filesChanged)
-			
+
 			if risk != tt.expectedRisk {
 				t.Errorf("classifyCommitRisk() risk = %v, want %v", risk, tt.expectedRisk)
 			}
-			
+
 			if reason != tt.expectedReason {
 				t.Errorf("classifyCommitRisk() reason = %v, want %v", reason, tt.expectedReason)
 			}
@@ -133,7 +133,7 @@ func TestHighRiskCommitsEdgeCases(t *testing.T) {
 	// Test empty commits
 	emptyCommits := []HighRiskCommit{}
 	stats := calculateHighRiskCommitsStats(emptyCommits)
-	
+
 	if stats.TotalCommits != 0 {
 		t.Errorf("Expected TotalCommits = 0 for empty list, got %d", stats.TotalCommits)
 	}
@@ -146,7 +146,7 @@ func TestHighRiskCommitsEdgeCases(t *testing.T) {
 		{Hash: "single", LinesChanged: 100, FilesChanged: 5, Risk: "Low"},
 	}
 	singleStats := calculateHighRiskCommitsStats(singleCommit)
-	
+
 	if singleStats.TotalCommits != 1 {
 		t.Errorf("Expected TotalCommits = 1 for single commit, got %d", singleStats.TotalCommits)
 	}
@@ -157,4 +157,3 @@ func TestHighRiskCommitsEdgeCases(t *testing.T) {
 		t.Errorf("Expected LargestCommit.Hash = single, got %s", singleStats.LargestCommit.Hash)
 	}
 }
-

@@ -27,71 +27,71 @@ import (
 
 func TestCalculateCommitRisk(t *testing.T) {
 	tests := []struct {
-		name           string
-		additions      int
-		deletions      int
-		filesChanged   int
-		expectedRisk   string
-		expectedScore  int
+		name          string
+		additions     int
+		deletions     int
+		filesChanged  int
+		expectedRisk  string
+		expectedScore int
 	}{
 		{
-			name:           "small safe commit",
-			additions:      50,
-			deletions:      25,
-			filesChanged:   3,
-			expectedRisk:   "Low",
-			expectedScore:  105, // 75 + (3 * 10)
+			name:          "small safe commit",
+			additions:     50,
+			deletions:     25,
+			filesChanged:  3,
+			expectedRisk:  "Low",
+			expectedScore: 105, // 75 + (3 * 10)
 		},
 		{
-			name:           "medium commit",
-			additions:      200,
-			deletions:      100,
-			filesChanged:   8,
-			expectedRisk:   "Medium",
-			expectedScore:  380, // 300 + (8 * 10)
+			name:          "medium commit",
+			additions:     200,
+			deletions:     100,
+			filesChanged:  8,
+			expectedRisk:  "Medium",
+			expectedScore: 380, // 300 + (8 * 10)
 		},
 		{
-			name:           "large risky commit",
-			additions:      500,
-			deletions:      200,
-			filesChanged:   15,
-			expectedRisk:   "Critical",
-			expectedScore:  850, // 700 + (15 * 10)
+			name:          "large risky commit",
+			additions:     500,
+			deletions:     200,
+			filesChanged:  15,
+			expectedRisk:  "Critical",
+			expectedScore: 850, // 700 + (15 * 10)
 		},
 		{
-			name:           "very large commit",
-			additions:      1000,
-			deletions:      500,
-			filesChanged:   25,
-			expectedRisk:   "Critical",
-			expectedScore:  1750, // 1500 + (25 * 10)
+			name:          "very large commit",
+			additions:     1000,
+			deletions:     500,
+			filesChanged:  25,
+			expectedRisk:  "Critical",
+			expectedScore: 1750, // 1500 + (25 * 10)
 		},
 		{
-			name:           "many files but small changes",
-			additions:      100,
-			deletions:      50,
-			filesChanged:   20,
-			expectedRisk:   "Medium",
-			expectedScore:  350, // 150 + (20 * 10)
+			name:          "many files but small changes",
+			additions:     100,
+			deletions:     50,
+			filesChanged:  20,
+			expectedRisk:  "Medium",
+			expectedScore: 350, // 150 + (20 * 10)
 		},
 		{
-			name:           "few files but large changes",
-			additions:      800,
-			deletions:      200,
-			filesChanged:   2,
-			expectedRisk:   "High",
-			expectedScore:  1020, // 1000 + (2 * 10)
+			name:          "few files but large changes",
+			additions:     800,
+			deletions:     200,
+			filesChanged:  2,
+			expectedRisk:  "High",
+			expectedScore: 1020, // 1000 + (2 * 10)
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			risk, score := calculateCommitRisk(tt.additions, tt.deletions, tt.filesChanged)
-			
+
 			if risk != tt.expectedRisk {
 				t.Errorf("calculateCommitRisk() risk = %v, want %v", risk, tt.expectedRisk)
 			}
-			
+
 			if score != tt.expectedScore {
 				t.Errorf("calculateCommitRisk() score = %v, want %v", score, tt.expectedScore)
 			}
@@ -163,11 +163,11 @@ func TestFilterCommitsByRisk(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filtered := filterCommitsByRisk(commits, tt.minRisk)
-			
+
 			if len(filtered) != tt.expectedCount {
 				t.Errorf("Expected %d commits, got %d", tt.expectedCount, len(filtered))
 			}
-			
+
 			for i, expectedHash := range tt.expectedHashes {
 				if i >= len(filtered) {
 					t.Errorf("Missing commit at index %d", i)

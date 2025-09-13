@@ -37,34 +37,34 @@ const (
 	// Ownership thresholds based on Microsoft research
 	// >9 contributors increases vulnerability likelihood 16x
 	// Strong ownership (one developer ≥80%) tends to improve quality
-	ownershipStrongThreshold = 0.80  // One developer owns ≥80% of changes
-	ownershipRiskThreshold   = 9     // >9 contributors increases vulnerability risk
-	ownershipMinContributorsForAnalysis = 3 // Only analyze files with ≥3 contributors
+	ownershipStrongThreshold            = 0.80 // One developer owns ≥80% of changes
+	ownershipRiskThreshold              = 9    // >9 contributors increases vulnerability risk
+	ownershipMinContributorsForAnalysis = 3    // Only analyze files with ≥3 contributors
 )
 
 const ownershipBenchmarkContext = "Microsoft Research: Strong code ownership (one developer ≥80%) improves quality, while files with >9 contributors are 16x more likely to have vulnerabilities (Bird et al., MSR 2011)."
 
 // OwnershipClarityStats represents the ownership clarity analysis for files
 type OwnershipClarityStats struct {
-	TotalFiles           int
-	FilesAnalyzed        int
-	HealthyFiles         int
-	CautionFiles         int
-	WarningFiles         int
-	CriticalFiles        int
-	UnknownFiles         int
-	FileOwnership        []FileOwnership
+	TotalFiles    int
+	FilesAnalyzed int
+	HealthyFiles  int
+	CautionFiles  int
+	WarningFiles  int
+	CriticalFiles int
+	UnknownFiles  int
+	FileOwnership []FileOwnership
 }
 
 // FileOwnership represents ownership information for a single file
 type FileOwnership struct {
-	FilePath         string
-	TopContributor   string
-	TopOwnership     float64
+	FilePath          string
+	TopContributor    string
+	TopOwnership      float64
 	TotalContributors int
-	Status           string
-	Recommendation   string
-	CommitsByAuthor  map[string]int
+	Status            string
+	Recommendation    string
+	CommitsByAuthor   map[string]int
 }
 
 // calculateOwnershipClarity calculates ownership clarity metrics
@@ -72,11 +72,11 @@ func calculateOwnershipClarity(commitsByContributor map[string]int) (float64, st
 	if len(commitsByContributor) == 0 {
 		return 0.0, "Unknown", 0
 	}
-	
+
 	total := 0
 	maxCommits := 0
 	validContributors := 0
-	
+
 	// Count total commits and find max, filtering out negative values
 	for _, commits := range commitsByContributor {
 		if commits > 0 {
@@ -87,14 +87,14 @@ func calculateOwnershipClarity(commitsByContributor map[string]int) (float64, st
 			}
 		}
 	}
-	
+
 	if total == 0 {
 		return 0.0, "Unknown", validContributors
 	}
-	
+
 	topOwnership := float64(maxCommits) / float64(total)
 	status, _ := classifyOwnershipClarity(topOwnership, validContributors)
-	
+
 	return topOwnership, status, validContributors
 }
 
@@ -104,23 +104,23 @@ func classifyOwnershipClarity(topOwnership float64, totalContributors int) (stri
 	if totalContributors <= 1 {
 		return "Healthy", "Good ownership balance"
 	}
-	
+
 	// Based on Microsoft research findings
 	// Strong ownership tends to improve quality regardless of contributor count
 	if topOwnership >= ownershipStrongThreshold {
 		return "Healthy", "Strong ownership tends to improve quality"
 	}
-	
+
 	// Excessive number of contributors without clear owner increases risk
 	if totalContributors > ownershipRiskThreshold {
 		return "Critical", "Too many contributors (>9) increases vulnerability risk 16x"
 	}
-	
+
 	// Small teams benefit from knowledge sharing
 	if totalContributors <= 3 {
 		return "Caution", "Small team – consider knowledge sharing"
 	}
-	
+
 	return "Warning", "Multiple contributors without clear ownership"
 }
 
@@ -136,19 +136,19 @@ func analyzeOwnershipClarity(repo *git.Repository, pathFilters []string, lastArg
 		return nil, fmt.Errorf("invalid time window: %v", err)
 	}
 	since = &sinceTime
-	
+
 	// Get file ownership data with efficient analysis
 	fileOwnership, err := analyzeFileOwnership(repo, pathFilters, since)
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing file ownership: %v", err)
 	}
-	
+
 	stats := &OwnershipClarityStats{
 		TotalFiles:    len(fileOwnership),
 		FilesAnalyzed: len(fileOwnership),
 		FileOwnership: fileOwnership,
 	}
-	
+
 	// Count files by status
 	for _, file := range fileOwnership {
 		switch file.Status {
@@ -164,7 +164,7 @@ func analyzeOwnershipClarity(repo *git.Repository, pathFilters []string, lastArg
 			stats.UnknownFiles++
 		}
 	}
-	
+
 	return stats, nil
 }
 
@@ -178,22 +178,22 @@ func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *tim
 		return nil, fmt.Errorf("could not get commit log: %v", err)
 	}
 	defer commitIter.Close()
-	
+
 	// Map of file -> author -> commit count
 	fileCommits := make(map[string]map[string]int)
-	
+
 	err = commitIter.ForEach(func(commit *object.Commit) error {
 		// Add check for commit author to prevent runtime crashes
 		if commit.Author.Email == "" {
 			return nil // Skip commits without author information
 		}
 		author := commit.Author.Email
-		
+
 		// Skip merge commits for performance (they often don't represent meaningful ownership)
 		if commit.NumParents() > 1 {
 			return nil
 		}
-		
+
 		// Get files changed in this commit using efficient approach
 		if commit.NumParents() == 0 {
 			// Initial commit - treat as adding all files
@@ -201,12 +201,12 @@ func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *tim
 			if err != nil {
 				return err
 			}
-			
+
 			return tree.Files().ForEach(func(file *object.File) error {
 				if !matchesPathFilter(file.Name, pathFilters) {
 					return nil
 				}
-				
+
 				if fileCommits[file.Name] == nil {
 					fileCommits[file.Name] = make(map[string]int)
 				}
@@ -214,29 +214,29 @@ func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *tim
 				return nil
 			})
 		}
-		
+
 		// Regular commit - use more efficient diff approach
 		parent, err := commit.Parent(0)
 		if err != nil {
 			return err
 		}
-		
+
 		parentTree, err := parent.Tree()
 		if err != nil {
 			return err
 		}
-		
+
 		currentTree, err := commit.Tree()
 		if err != nil {
 			return err
 		}
-		
+
 		// Use name-only changes to reduce memory usage
 		changes, err := parentTree.Diff(currentTree)
 		if err != nil {
 			return err
 		}
-		
+
 		// Process changes with early filtering to bound memory
 		for _, change := range changes {
 			var filePath string
@@ -245,14 +245,14 @@ func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *tim
 			} else if change.From.Name != "" {
 				filePath = change.From.Name
 			}
-			
+
 			// Early path filtering to avoid processing irrelevant files
 			if filePath != "" && matchesPathFilter(filePath, pathFilters) {
 				if fileCommits[filePath] == nil {
 					fileCommits[filePath] = make(map[string]int)
 				}
 				fileCommits[filePath][author]++
-				
+
 				// Handle rename detection by tracking both old and new names
 				if change.From.Name != "" && change.To.Name != "" && change.From.Name != change.To.Name {
 					// File was renamed - credit both paths to maintain history
@@ -265,20 +265,20 @@ func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *tim
 				}
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error iterating commits: %v", err)
 	}
-	
+
 	// Convert to FileOwnership slice
 	var ownership []FileOwnership
 	for filePath, commits := range fileCommits {
 		topOwnership, status, contributors := calculateOwnershipClarity(commits)
 		_, recommendation := classifyOwnershipClarity(topOwnership, contributors)
-		
+
 		// Find top contributor
 		topContributor := ""
 		maxCommits := 0
@@ -288,18 +288,18 @@ func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *tim
 				topContributor = author
 			}
 		}
-		
+
 		ownership = append(ownership, FileOwnership{
-			FilePath:         filePath,
-			TopContributor:   topContributor,
-			TopOwnership:     topOwnership,
+			FilePath:          filePath,
+			TopContributor:    topContributor,
+			TopOwnership:      topOwnership,
 			TotalContributors: contributors,
-			Status:           status,
-			Recommendation:   recommendation,
-			CommitsByAuthor:  commits,
+			Status:            status,
+			Recommendation:    recommendation,
+			CommitsByAuthor:   commits,
 		})
 	}
-	
+
 	// Sort by ownership clarity (most concerning first)
 	sort.Slice(ownership, func(i, j int) bool {
 		statusPriority := map[string]int{
@@ -309,18 +309,18 @@ func analyzeFileOwnership(repo *git.Repository, pathFilters []string, since *tim
 			"Healthy":  3,
 			"Unknown":  4,
 		}
-		
+
 		if statusPriority[ownership[i].Status] != statusPriority[ownership[j].Status] {
 			return statusPriority[ownership[i].Status] < statusPriority[ownership[j].Status]
 		}
-		
+
 		// Within same status, sort by ownership percentage (lower first for problematic statuses)
 		if ownership[i].Status == "Critical" || ownership[i].Status == "Warning" {
 			return ownership[i].TopOwnership < ownership[j].TopOwnership
 		}
 		return ownership[i].TopOwnership > ownership[j].TopOwnership
 	})
-	
+
 	return ownership, nil
 }
 
@@ -332,7 +332,7 @@ func printOwnershipClarityStats(stats *OwnershipClarityStats, pathFilters []stri
 	}
 	fmt.Printf("Files analyzed: %d\n", stats.FilesAnalyzed)
 	fmt.Println()
-	
+
 	// Summary by status
 	fmt.Printf("Ownership Distribution:\n")
 	if stats.FilesAnalyzed == 0 {
@@ -344,7 +344,7 @@ func printOwnershipClarityStats(stats *OwnershipClarityStats, pathFilters []stri
 			fmt.Printf("  Unknown: %d files (0.0%%)\n", stats.UnknownFiles)
 		}
 	} else {
-		fmt.Printf("  Healthy: %d files (%.1f%%)\n", stats.HealthyFiles, 
+		fmt.Printf("  Healthy: %d files (%.1f%%)\n", stats.HealthyFiles,
 			float64(stats.HealthyFiles)/float64(stats.FilesAnalyzed)*100)
 		fmt.Printf("  Caution: %d files (%.1f%%)\n", stats.CautionFiles,
 			float64(stats.CautionFiles)/float64(stats.FilesAnalyzed)*100)
@@ -358,26 +358,26 @@ func printOwnershipClarityStats(stats *OwnershipClarityStats, pathFilters []stri
 		}
 	}
 	fmt.Println()
-	
+
 	fmt.Println("Context:", ownershipBenchmarkContext)
 	fmt.Println()
-	
+
 	// Show detailed file analysis
 	displayCount := limit
 	if displayCount > len(stats.FileOwnership) {
 		displayCount = len(stats.FileOwnership)
 	}
-	
+
 	if displayCount > 0 {
 		fmt.Printf("Top %d files by ownership risk:\n", displayCount)
 		for i := 0; i < displayCount; i++ {
 			file := stats.FileOwnership[i]
 			fmt.Printf("\n%d. %s — %s\n", i+1, file.FilePath, file.Status)
-			fmt.Printf("   Top owner: %s (%.1f%% of commits)\n", 
+			fmt.Printf("   Top owner: %s (%.1f%% of commits)\n",
 				file.TopContributor, file.TopOwnership*100)
 			fmt.Printf("   Contributors: %d\n", file.TotalContributors)
 			fmt.Printf("   Recommendation: %s\n", file.Recommendation)
-			
+
 			// Show top contributors
 			if len(file.CommitsByAuthor) > 1 {
 				type authorCommit struct {
@@ -393,7 +393,7 @@ func printOwnershipClarityStats(stats *OwnershipClarityStats, pathFilters []stri
 				sort.Slice(authors, func(a, b int) bool {
 					return authors[a].commits > authors[b].commits
 				})
-				
+
 				fmt.Printf("   Top contributors: ")
 				for j, ac := range authors {
 					if j >= 3 { // Show top 3
@@ -408,7 +408,7 @@ func printOwnershipClarityStats(stats *OwnershipClarityStats, pathFilters []stri
 			}
 		}
 	}
-	
+
 	// Provide actionable insights
 	fmt.Printf("\nRecommendations:\n")
 	if stats.CriticalFiles > 0 {
@@ -453,9 +453,9 @@ Classifications:
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		pathFilters, source := getConfigPaths(cmd, "ownership-clarity.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "ownership-clarity.last")
 		limit, _ := cmd.Flags().GetInt("limit")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "ownership-clarity", lastArg, pathFilters, source)
 

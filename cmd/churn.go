@@ -14,8 +14,8 @@ import (
 const churnBenchmarkContext = "High churn indicates instability and potential architectural issues (Microsoft Research)."
 
 const (
-	churnHealthyThreshold  = 5
-	churnCautionThreshold  = 15
+	churnHealthyThreshold = 5
+	churnCautionThreshold = 15
 )
 
 func processCommitDiffs(c *object.Commit, pathFilters []string) (int, int) {
@@ -43,7 +43,6 @@ func processCommitDiffs(c *object.Commit, pathFilters []string) (int, int) {
 	return additions, deletions
 }
 
-
 // churnCmd represents the churn command
 var churnCmd = &cobra.Command{
 	Use:   "churn",
@@ -53,12 +52,12 @@ This helps you understand whether your repo is growing sustainably
 or accumulating complexity.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "churn.last")
 		pathFilters, source := getConfigPaths(cmd, "churn.paths")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "churn", lastArg, pathFilters, source)
-		
+
 		repo, err := git.PlainOpen(".")
 		if err != nil {
 			log.Fatalf("Could not open repository: %v", err)

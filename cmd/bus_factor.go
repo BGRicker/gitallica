@@ -39,38 +39,38 @@ import (
 const (
 	// Bus factor thresholds based on empirical GitHub research
 	// Most projects have bus factor of 1-2, with 46% having bus factor of 1
-	criticalBusFactorThreshold = 1  // Single point of failure
-	lowBusFactorThreshold      = 2  // Most common in empirical studies
+	criticalBusFactorThreshold = 1 // Single point of failure
+	lowBusFactorThreshold      = 2 // Most common in empirical studies
 )
 
 const busFactorBenchmarkContext = "Empirical studies show 46% of GitHub projects have bus factor of 1, 28% have bus factor of 2."
 
 // DirectoryBusFactorStats represents bus factor statistics for a directory
 type DirectoryBusFactorStats struct {
-	Path               string
-	TotalLines         int                    // Total lines of code in directory
-	AuthorLines        map[string]int         // Lines authored by each contributor
-	AuthorPercentages  map[string]float64     // Percentage of lines authored by each contributor
-	BusFactor          int
-	RiskLevel          string
-	Recommendation     string
-	TopContributors    []AuthorContribution
+	Path              string
+	TotalLines        int                // Total lines of code in directory
+	AuthorLines       map[string]int     // Lines authored by each contributor
+	AuthorPercentages map[string]float64 // Percentage of lines authored by each contributor
+	BusFactor         int
+	RiskLevel         string
+	Recommendation    string
+	TopContributors   []AuthorContribution
 }
 
 // AuthorContribution represents an author's contribution to a directory
 type AuthorContribution struct {
 	Author     string
-	Lines      int        // Lines authored (was Commits)
+	Lines      int // Lines authored (was Commits)
 	Percentage float64
 }
 
 // BusFactorAnalysis represents the overall bus factor analysis
 type BusFactorAnalysis struct {
-	TimeWindow        string
-	TotalDirectories  int
-	DirectoryStats    []DirectoryBusFactorStats
-	OverallRiskDirs   []DirectoryBusFactorStats
-	HealthyDirs       []DirectoryBusFactorStats
+	TimeWindow       string
+	TotalDirectories int
+	DirectoryStats   []DirectoryBusFactorStats
+	OverallRiskDirs  []DirectoryBusFactorStats
+	HealthyDirs      []DirectoryBusFactorStats
 }
 
 // normalizeAuthorName normalizes author names to handle different formats
@@ -78,7 +78,7 @@ func normalizeAuthorName(name, email string) string {
 	// Clean and normalize inputs
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
 	cleanName := strings.ToLower(strings.TrimSpace(name))
-	
+
 	// Handle common email variations for the same person using configurable mappings
 	for _, mapping := range DefaultAuthorMappings {
 		for _, pattern := range mapping.Patterns {
@@ -87,23 +87,23 @@ func normalizeAuthorName(name, email string) string {
 			}
 		}
 	}
-	
+
 	// Check if email looks generic or invalid
 	if isGenericEmail(cleanEmail) && cleanName != "" {
 		// Prefer name when email is generic
 		return strings.ToLower(cleanName)
 	}
-	
+
 	// Use email if it looks valid
 	if cleanEmail != "" && strings.Contains(cleanEmail, "@") {
 		return cleanEmail
 	}
-	
+
 	// Fallback to name if available
 	if cleanName != "" {
 		return strings.ToLower(cleanName)
 	}
-	
+
 	return "unknown"
 }
 
@@ -113,66 +113,65 @@ func isGenericEmail(email string) bool {
 	genericDomains := []string{
 		"@localhost",
 		"@example.com",
-		"@example.org", 
+		"@example.org",
 		"@test.com",
 	}
-	
+
 	for _, domain := range genericDomains {
 		if strings.Contains(email, domain) {
 			return true
 		}
 	}
-	
+
 	// Check for username-based patterns
 	if strings.HasPrefix(email, "noreply@") ||
-	   strings.HasPrefix(email, "no-reply@") ||
-	   strings.HasPrefix(email, "user@") ||
-	   strings.HasPrefix(email, "admin@") ||
-	   strings.HasPrefix(email, "root@") {
+		strings.HasPrefix(email, "no-reply@") ||
+		strings.HasPrefix(email, "user@") ||
+		strings.HasPrefix(email, "admin@") ||
+		strings.HasPrefix(email, "root@") {
 		return true
 	}
-	
+
 	return false
 }
-
 
 // calculateBusFactor calculates the bus factor for a directory based on author contributions
 func calculateBusFactor(authorCommits map[string]int) int {
 	if len(authorCommits) == 0 {
 		return 0
 	}
-	
+
 	// Calculate total commits
 	totalCommits := 0
 	for _, commits := range authorCommits {
 		totalCommits += commits
 	}
-	
+
 	if totalCommits == 0 {
 		return 0
 	}
-	
+
 	// Sort authors by contribution descending
 	type authorContrib struct {
 		author  string
 		commits int
 		percent float64
 	}
-	
+
 	var contribs []authorContrib
 	for author, commits := range authorCommits {
 		percent := float64(commits) / float64(totalCommits) * 100
 		contribs = append(contribs, authorContrib{author, commits, percent})
 	}
-	
+
 	sort.Slice(contribs, func(i, j int) bool {
 		return contribs[i].commits > contribs[j].commits
 	})
-	
+
 	// Calculate bus factor: minimum number of people needed to have >50% of knowledge
 	accumulatedPercent := 0.0
 	busFactor := 0
-	
+
 	for _, contrib := range contribs {
 		busFactor++
 		accumulatedPercent += contrib.percent
@@ -180,7 +179,7 @@ func calculateBusFactor(authorCommits map[string]int) int {
 			break
 		}
 	}
-	
+
 	return busFactor
 }
 
@@ -189,7 +188,7 @@ func classifyBusFactorRisk(busFactor, totalContributors int) string {
 	if totalContributors == 0 {
 		return "Unknown"
 	}
-	
+
 	// Based on empirical GitHub research showing most projects have bus factor 1-2
 	switch {
 	case busFactor <= criticalBusFactorThreshold:
@@ -206,27 +205,27 @@ func classifyBusFactorRisk(busFactor, totalContributors int) string {
 // calculateAuthorContributionPercentage calculates percentage contribution for each author
 func calculateAuthorContributionPercentage(authorCommits map[string]int) map[string]float64 {
 	percentages := make(map[string]float64)
-	
+
 	totalCommits := 0
 	for _, commits := range authorCommits {
 		totalCommits += commits
 	}
-	
+
 	if totalCommits == 0 {
 		return percentages
 	}
-	
+
 	for author, commits := range authorCommits {
 		percentages[author] = float64(commits) / float64(totalCommits) * 100
 	}
-	
+
 	return percentages
 }
 
 // getTopContributors returns the top N contributors sorted by contribution
 func getTopContributors(authorLines map[string]int, authorPercentages map[string]float64, limit int) []AuthorContribution {
 	var contributors []AuthorContribution
-	
+
 	for author, lines := range authorLines {
 		percentage := authorPercentages[author]
 		contributors = append(contributors, AuthorContribution{
@@ -235,16 +234,16 @@ func getTopContributors(authorLines map[string]int, authorPercentages map[string
 			Percentage: percentage,
 		})
 	}
-	
+
 	// Sort by lines descending
 	sort.Slice(contributors, func(i, j int) bool {
 		return contributors[i].Lines > contributors[j].Lines
 	})
-	
+
 	if len(contributors) > limit {
 		contributors = contributors[:limit]
 	}
-	
+
 	return contributors
 }
 
@@ -270,7 +269,7 @@ func getRecommendation(riskLevel string, busFactor int) string {
 func sortDirectoriesByBusFactorRisk(dirs []DirectoryBusFactorStats) []DirectoryBusFactorStats {
 	sorted := make([]DirectoryBusFactorStats, len(dirs))
 	copy(sorted, dirs)
-	
+
 	// Define risk priority order
 	riskOrder := map[string]int{
 		"Critical": 1,
@@ -279,19 +278,19 @@ func sortDirectoriesByBusFactorRisk(dirs []DirectoryBusFactorStats) []DirectoryB
 		"Healthy":  4,
 		"Unknown":  5,
 	}
-	
+
 	sort.Slice(sorted, func(i, j int) bool {
 		orderI := riskOrder[sorted[i].RiskLevel]
 		orderJ := riskOrder[sorted[j].RiskLevel]
-		
+
 		if orderI != orderJ {
 			return orderI < orderJ
 		}
-		
+
 		// If same risk level, sort by bus factor (lower is riskier)
 		return sorted[i].BusFactor < sorted[j].BusFactor
 	})
-	
+
 	return sorted
 }
 
@@ -302,20 +301,20 @@ func findFileAuthor(repo *git.Repository, fileName string, headCommit *object.Co
 	if found {
 		return author, nil
 	}
-	
+
 	// If not found in time window, try to find the most recent author overall
 	// This handles cases where files were last modified before the cutoff time
 	author, found = findFileAuthorInTimeWindow(repo, fileName, headCommit, time.Time{})
 	if found {
 		return author, nil
 	}
-	
+
 	// If still not found, try using a comprehensive fallback approach
 	author, found = findFileAuthorWithFallback(repo, fileName, headCommit)
 	if found {
 		return author, nil
 	}
-	
+
 	return object.Signature{}, fmt.Errorf("could not determine author for file %s", fileName)
 }
 
@@ -326,14 +325,14 @@ func findFileAuthorInTimeWindow(repo *git.Repository, fileName string, headCommi
 		return object.Signature{}, false
 	}
 	defer cIter.Close()
-	
+
 	var lastAuthor object.Signature
-	
+
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if !since.IsZero() && c.Committer.When.Before(since) {
 			return storer.ErrStop
 		}
-		
+
 		// Check if this commit modified the file
 		if c.NumParents() == 0 {
 			// Initial commit - check if file exists
@@ -341,7 +340,7 @@ func findFileAuthorInTimeWindow(repo *git.Repository, fileName string, headCommi
 			if err != nil {
 				return nil
 			}
-			
+
 			_, err = tree.File(fileName)
 			if err == nil {
 				// File exists in this commit
@@ -354,12 +353,12 @@ func findFileAuthorInTimeWindow(repo *git.Repository, fileName string, headCommi
 			if err != nil {
 				return nil
 			}
-			
+
 			patch, err := parent.Patch(c)
 			if err != nil {
 				return nil
 			}
-			
+
 			for _, filePatch := range patch.FilePatches() {
 				from, to := filePatch.Files()
 				var currentFileName string
@@ -368,7 +367,7 @@ func findFileAuthorInTimeWindow(repo *git.Repository, fileName string, headCommi
 				} else if from != nil {
 					currentFileName = from.Path()
 				}
-				
+
 				if currentFileName == fileName {
 					// This commit modified our file
 					lastAuthor = c.Author
@@ -376,14 +375,14 @@ func findFileAuthorInTimeWindow(repo *git.Repository, fileName string, headCommi
 				}
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil && err != storer.ErrStop {
 		return object.Signature{}, false
 	}
-	
+
 	return lastAuthor, lastAuthor.Name != ""
 }
 
@@ -395,10 +394,10 @@ func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommi
 		return object.Signature{}, false
 	}
 	defer cIter.Close()
-	
+
 	var lastAuthor object.Signature
 	var found bool
-	
+
 	// Walk through all commits to find when the file was first created
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if c.NumParents() == 0 {
@@ -407,7 +406,7 @@ func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommi
 			if err != nil {
 				return nil
 			}
-			
+
 			_, err = tree.File(fileName)
 			if err == nil {
 				// File exists in this commit
@@ -421,17 +420,17 @@ func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommi
 			if err != nil {
 				return nil
 			}
-			
+
 			parentTree, err := parent.Tree()
 			if err != nil {
 				return nil
 			}
-			
+
 			tree, err := c.Tree()
 			if err != nil {
 				return nil
 			}
-			
+
 			// Check if file exists in current commit but not in parent
 			_, err = tree.File(fileName)
 			if err == nil {
@@ -444,14 +443,14 @@ func findFileAuthorWithFallback(repo *git.Repository, fileName string, headCommi
 				}
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil && err != storer.ErrStop {
 		return object.Signature{}, false
 	}
-	
+
 	return lastAuthor, found
 }
 
@@ -462,12 +461,12 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 		return fmt.Errorf("could not get commits: %v", err)
 	}
 	defer cIter.Close()
-	
+
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if !since.IsZero() && c.Committer.When.Before(since) {
 			return storer.ErrStop
 		}
-		
+
 		// Handle merge commits by diffing against their first parent
 		var parentTree *object.Tree
 		if c.NumParents() > 0 {
@@ -480,34 +479,34 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 				return nil
 			}
 		}
-		
+
 		tree, err := c.Tree()
 		if err != nil {
 			return nil
 		}
-		
+
 		if parentTree != nil {
 			// Compare with parent to get changed files
 			changes, err := tree.Diff(parentTree)
 			if err != nil {
 				return nil
 			}
-			
+
 			for _, change := range changes {
 				if change.To.Name == "" {
 					continue // skip deletions
 				}
-				
+
 				// Apply path filter if specified
 				if !matchesPathFilter(change.To.Name, pathFilters) {
 					continue
 				}
-				
+
 				// Initialize file authors map if needed
 				if fileAuthors[change.To.Name] == nil {
 					fileAuthors[change.To.Name] = make(map[string]int)
 				}
-				
+
 				author := normalizeAuthorName(c.Author.Name, c.Author.Email)
 				fileAuthors[change.To.Name][author]++ // Count commits, not lines
 			}
@@ -517,25 +516,25 @@ func buildFileAuthorMap(repo *git.Repository, ref *plumbing.Reference, since tim
 				if !matchesPathFilter(f.Name, pathFilters) {
 					return nil
 				}
-				
+
 				// Initialize file authors map if needed
 				if fileAuthors[f.Name] == nil {
 					fileAuthors[f.Name] = make(map[string]int)
 				}
-				
+
 				author := normalizeAuthorName(c.Author.Name, c.Author.Email)
 				fileAuthors[f.Name][author]++ // Count commits, not lines
-				
+
 				return nil
 			})
 			if err != nil {
 				return err
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	return err
 }
 
@@ -547,41 +546,41 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []strin
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
 	}
-	
+
 	// Track file authorship per directory using commit-based analysis
 	directoryOwnership := make(map[string]map[string]int)
-	
+
 	// Get current HEAD commit and tree
 	headCommit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD commit: %v", err)
 	}
-	
+
 	tree, err := headCommit.Tree()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
-	
+
 	// Build comprehensive file author map efficiently
 	fileAuthors := make(map[string]map[string]int) // file -> author -> lines contributed
 	err = buildFileAuthorMap(repo, ref, since, pathFilters, fileAuthors)
 	if err != nil {
 		return nil, fmt.Errorf("error building file author map: %v", err)
 	}
-	
+
 	// Initialize directory structure
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
 		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
-		
+
 		// Skip binary files
 		isBinary, err := f.IsBinary()
 		if err != nil || isBinary {
 			return nil
 		}
-		
+
 		// Get directory for this file
 		dir := filepath.Dir(f.Name)
 		if dir == "." {
@@ -589,19 +588,19 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []strin
 		} else {
 			dir = dir + "/"
 		}
-		
+
 		// Initialize directory ownership map if needed
 		if directoryOwnership[dir] == nil {
 			directoryOwnership[dir] = make(map[string]int)
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing files: %v", err)
 	}
-	
+
 	// Count commits by author per directory
 	for fileName, authorCommits := range fileAuthors {
 		// Get directory for this file
@@ -611,18 +610,18 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []strin
 		} else {
 			dir = dir + "/"
 		}
-		
+
 		// Initialize directory ownership map if needed
 		if directoryOwnership[dir] == nil {
 			directoryOwnership[dir] = make(map[string]int)
 		}
-		
+
 		// Add each author's commits to the directory
 		for author, commits := range authorCommits {
 			directoryOwnership[dir][author] += commits
 		}
 	}
-	
+
 	// Calculate bus factor statistics for each directory
 	var directoryStats []DirectoryBusFactorStats
 	for dir, authorCommits := range directoryOwnership {
@@ -630,16 +629,16 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []strin
 		for _, commits := range authorCommits {
 			totalCommits += commits
 		}
-		
+
 		busFactor := calculateBusFactor(authorCommits)
 		riskLevel := classifyBusFactorRisk(busFactor, len(authorCommits))
 		authorPercentages := calculateAuthorContributionPercentage(authorCommits)
 		topContributors := getTopContributors(authorCommits, authorPercentages, 5)
 		recommendation := getRecommendation(riskLevel, busFactor)
-		
+
 		stats := DirectoryBusFactorStats{
 			Path:              dir,
-			TotalLines:        totalCommits, // Using commits as proxy for lines
+			TotalLines:        totalCommits,  // Using commits as proxy for lines
 			AuthorLines:       authorCommits, // Using commits as proxy for lines
 			AuthorPercentages: authorPercentages,
 			BusFactor:         busFactor,
@@ -647,13 +646,13 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []strin
 			Recommendation:    recommendation,
 			TopContributors:   topContributors,
 		}
-		
+
 		directoryStats = append(directoryStats, stats)
 	}
-	
+
 	// Sort by risk level
 	directoryStats = sortDirectoriesByBusFactorRisk(directoryStats)
-	
+
 	// Separate risky and healthy directories
 	var overallRiskDirs, healthyDirs []DirectoryBusFactorStats
 	for _, stats := range directoryStats {
@@ -664,12 +663,12 @@ func analyzeBusFactor(repo *git.Repository, since time.Time, pathFilters []strin
 			healthyDirs = append(healthyDirs, stats)
 		}
 	}
-	
+
 	timeWindow := "all time"
 	if !since.IsZero() {
 		timeWindow = fmt.Sprintf("since %s", since.Format("2006-01-02"))
 	}
-	
+
 	return &BusFactorAnalysis{
 		TimeWindow:       timeWindow,
 		TotalDirectories: len(directoryStats),
@@ -689,23 +688,23 @@ func printBusFactorStats(analysis *BusFactorAnalysis, limit int) {
 	fmt.Println()
 	fmt.Println("Context:", busFactorBenchmarkContext)
 	fmt.Println()
-	
+
 	if len(analysis.DirectoryStats) == 0 {
 		fmt.Println("No directories found for analysis.")
 		return
 	}
-	
+
 	fmt.Printf("Directory Bus Factor Analysis (showing top %d):\n", limit)
 	fmt.Printf("Directory                    Bus Factor Contributors Risk Level  Recommendation\n")
 	fmt.Printf("---------------------------- ---------- ----------- ----------- ----------------------\n")
-	
+
 	for i, stats := range analysis.DirectoryStats {
 		if i >= limit {
 			break
 		}
-		
+
 		contributorCount := len(stats.AuthorLines)
-		
+
 		fmt.Printf("%-28s %10d %11d %-11s %s\n",
 			truncateDirectoryPath(stats.Path, 28),
 			stats.BusFactor,
@@ -713,22 +712,22 @@ func printBusFactorStats(analysis *BusFactorAnalysis, limit int) {
 			stats.RiskLevel,
 			truncateRecommendation(stats.Recommendation, 22))
 	}
-	
+
 	// Show detailed breakdown for high-risk directories
 	if len(analysis.OverallRiskDirs) > 0 {
 		fmt.Printf("\n[!] High-Risk Directories (detailed breakdown):\n")
 		showCount := min(3, len(analysis.OverallRiskDirs))
-		
+
 		for i := 0; i < showCount; i++ {
 			stats := analysis.OverallRiskDirs[i]
 			fmt.Printf("\n%s (Bus Factor: %d, Risk: %s)\n", stats.Path, stats.BusFactor, stats.RiskLevel)
 			fmt.Printf("  Top contributors:\n")
-			
+
 			for j, contrib := range stats.TopContributors {
 				if j >= 3 { // Show top 3 contributors
 					break
 				}
-				fmt.Printf("    %s: %d lines (%.1f%%)\n", 
+				fmt.Printf("    %s: %d lines (%.1f%%)\n",
 					truncateAuthorName(contrib.Author, 20), contrib.Lines, contrib.Percentage)
 			}
 			fmt.Printf("  Recommendation: %s\n", stats.Recommendation)
@@ -796,10 +795,10 @@ Risk Levels:
 Based on Martin Fowler's collective ownership principles and industry research.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "bus-factor.last")
 		pathFilters, source := getConfigPaths(cmd, "bus-factor.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "bus-factor", lastArg, pathFilters, source)
 

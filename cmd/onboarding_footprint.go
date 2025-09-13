@@ -35,16 +35,16 @@ import (
 
 const (
 	// Research-backed thresholds based on Clean Code principles for onboarding complexity
-	
+
 	// onboardingSimpleThreshold: 1-5 files in first commits indicates focused onboarding
 	onboardingSimpleThreshold = 5
-	
-	// onboardingModerateThreshold: 6-10 files indicates reasonable complexity  
+
+	// onboardingModerateThreshold: 6-10 files indicates reasonable complexity
 	onboardingModerateThreshold = 10
-	
+
 	// onboardingComplexThreshold: 11-20 files may signal steep onboarding curve
 	onboardingComplexThreshold = 20
-	
+
 	// onboardingDefaultCommitLimit: analyze first 5 commits for onboarding patterns
 	onboardingDefaultCommitLimit = 5
 )
@@ -61,26 +61,26 @@ type OnboardingFootprintStats struct {
 	ComplexOnboarding      int
 	OverwhelmingOnboarding int
 	Contributors           []NewContributor
-	CommonFiles           []FilePopularity
-	TimeWindow            string
+	CommonFiles            []FilePopularity
+	TimeWindow             string
 }
 
 // NewContributor represents a new contributor's onboarding pattern
 type NewContributor struct {
-	Email              string
-	FirstCommitTime    time.Time
-	FilesTouched       int
-	CommitsAnalyzed    int
-	Status             string
-	Recommendation     string
-	FilesModified      []string
+	Email           string
+	FirstCommitTime time.Time
+	FilesTouched    int
+	CommitsAnalyzed int
+	Status          string
+	Recommendation  string
+	FilesModified   []string
 }
 
 // FilePopularity represents how often a file is touched by new contributors
 type FilePopularity struct {
-	FilePath    string
-	TouchCount  int
-	Percentage  float64
+	FilePath   string
+	TouchCount int
+	Percentage float64
 }
 
 // classifyOnboardingComplexity classifies onboarding complexity based on files touched
@@ -101,7 +101,7 @@ func classifyOnboardingComplexity(filesCount int) (string, string) {
 func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, lastArg string, commitLimit int) (*OnboardingFootprintStats, error) {
 	var since *time.Time
 	timeWindow := "all time"
-	
+
 	if lastArg != "" {
 		sinceTime, err := parseDurationArg(lastArg)
 		if err != nil {
@@ -110,7 +110,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 		since = &sinceTime
 		timeWindow = fmt.Sprintf("since %s", since.Format("2006-01-02"))
 	}
-	
+
 	// Single-pass analysis: find first commits AND gather commit data efficiently
 	// This prevents memory issues from loading full history twice
 	commitIter, err := repo.Log(&git.LogOptions{
@@ -120,40 +120,40 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 		return nil, fmt.Errorf("could not get commit log: %v", err)
 	}
 	defer commitIter.Close()
-	
+
 	// Track data during single pass
 	authorTrueFirstCommit := make(map[string]time.Time)
 	allCommitData := make(map[string][]*CommitInfo) // Store all commits by author
-	
+
 	err = commitIter.ForEach(func(commit *object.Commit) error {
 		// Skip commits without author information
 		if commit.Author.Email == "" {
 			return nil
 		}
-		
+
 		author := commit.Author.Email
 		commitTime := commit.Author.When
-		
+
 		// Skip merge commits for cleaner analysis
 		if commit.NumParents() > 1 {
 			return nil
 		}
-		
+
 		// Track the earliest commit time for each author across ALL history
 		if firstTime, exists := authorTrueFirstCommit[author]; !exists || commitTime.Before(firstTime) {
 			authorTrueFirstCommit[author] = commitTime
 		}
-		
+
 		// Get files changed in this commit
 		var filesChanged []string
-		
+
 		if commit.NumParents() == 0 {
 			// Initial commit - treat as adding all files
 			tree, err := commit.Tree()
 			if err != nil {
 				return err
 			}
-			
+
 			err = tree.Files().ForEach(func(file *object.File) error {
 				if matchesPathFilter(file.Name, pathFilters) {
 					filesChanged = append(filesChanged, file.Name)
@@ -169,22 +169,22 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 			if err != nil {
 				return err
 			}
-			
+
 			parentTree, err := parent.Tree()
 			if err != nil {
 				return err
 			}
-			
+
 			currentTree, err := commit.Tree()
 			if err != nil {
 				return err
 			}
-			
+
 			changes, err := parentTree.Diff(currentTree)
 			if err != nil {
 				return err
 			}
-			
+
 			for _, change := range changes {
 				var filePath string
 				if change.To.Name != "" {
@@ -192,13 +192,13 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 				} else if change.From.Name != "" {
 					filePath = change.From.Name
 				}
-				
+
 				if filePath != "" && matchesPathFilter(filePath, pathFilters) {
 					filesChanged = append(filesChanged, filePath)
 				}
 			}
 		}
-		
+
 		// Store commit info for all authors during single pass
 		allCommitData[author] = append(allCommitData[author], &CommitInfo{
 			Hash:    commit.Hash.String(),
@@ -206,14 +206,14 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 			Files:   filesChanged,
 			Message: commit.Message,
 		})
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
 	}
-	
+
 	// After single pass: filter to only "new" contributors whose first commit falls within time window
 	var newContributors []string
 	if since != nil {
@@ -228,7 +228,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 			newContributors = append(newContributors, author)
 		}
 	}
-	
+
 	// Filter commit data to only new contributors for analysis
 	contributorCommits := make(map[string][]*CommitInfo)
 	for _, author := range newContributors {
@@ -236,78 +236,78 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 			contributorCommits[author] = commits
 		}
 	}
-	
+
 	// Sort commits by time for each new contributor
 	for author := range contributorCommits {
 		sort.Slice(contributorCommits[author], func(i, j int) bool {
 			return contributorCommits[author][i].Time.Before(contributorCommits[author][j].Time)
 		})
 	}
-	
+
 	// Analyze onboarding patterns
 	var contributors []NewContributor
 	filePopularity := make(map[string]int)
 	totalFilesTouched := 0
-	
+
 	for author, commits := range contributorCommits {
 		if len(commits) == 0 {
 			continue
 		}
-		
+
 		// Analyze first N commits for onboarding pattern
 		filesTouched := make(map[string]bool)
 		commitsAnalyzed := 0
-		
+
 		for i, commit := range commits {
 			if i >= commitLimit {
 				break
 			}
 			commitsAnalyzed++
-			
+
 			for _, file := range commit.Files {
 				filesTouched[file] = true
 				filePopularity[file]++
 			}
 		}
-		
+
 		filesCount := len(filesTouched)
 		totalFilesTouched += filesCount
 		status, recommendation := classifyOnboardingComplexity(filesCount)
-		
+
 		// Convert map to slice for storage
 		var filesModified []string
 		for file := range filesTouched {
 			filesModified = append(filesModified, file)
 		}
 		sort.Strings(filesModified)
-		
+
 		contributors = append(contributors, NewContributor{
-			Email:              author,
-			FirstCommitTime:    authorTrueFirstCommit[author],
-			FilesTouched:       filesCount,
-			CommitsAnalyzed:    commitsAnalyzed,
-			Status:             status,
-			Recommendation:     recommendation,
-			FilesModified:      filesModified,
+			Email:           author,
+			FirstCommitTime: authorTrueFirstCommit[author],
+			FilesTouched:    filesCount,
+			CommitsAnalyzed: commitsAnalyzed,
+			Status:          status,
+			Recommendation:  recommendation,
+			FilesModified:   filesModified,
 		})
 	}
-	
+
 	// Sort contributors by first commit time (newest first)
 	sort.Slice(contributors, func(i, j int) bool {
 		return contributors[i].FirstCommitTime.After(contributors[j].FirstCommitTime)
 	})
-	
+
 	// Calculate statistics
 	var averageFilesTouched float64
 	if len(contributors) > 0 {
 		averageFilesTouched = float64(totalFilesTouched) / float64(len(contributors))
 	}
-	
+
 	simpleCount := 0
 	moderateCount := 0
 	complexCount := 0
 	overwhelmingCount := 0
-	
+
 	for _, contributor := range contributors {
 		switch contributor.Status {
 		case "Simple":
@@ -320,7 +320,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 			overwhelmingCount++
 		}
 	}
-	
+
 	// Calculate file popularity - use only contributors who actually touched files in scope
 	var commonFiles []FilePopularity
 	contributorsWithFiles := 0
@@ -329,7 +329,7 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 			contributorsWithFiles++
 		}
 	}
-	
+
 	for file, count := range filePopularity {
 		var percentage float64
 		if contributorsWithFiles > 0 {
@@ -341,12 +341,12 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 			Percentage: percentage,
 		})
 	}
-	
+
 	// Sort by popularity
 	sort.Slice(commonFiles, func(i, j int) bool {
 		return commonFiles[i].TouchCount > commonFiles[j].TouchCount
 	})
-	
+
 	return &OnboardingFootprintStats{
 		TotalContributors:      len(contributorCommits), // All contributors who made commits
 		AnalyzedContributors:   len(contributors),       // Contributors with sufficient data for analysis
@@ -356,8 +356,8 @@ func analyzeOnboardingFootprint(repo *git.Repository, pathFilters []string, last
 		ComplexOnboarding:      complexCount,
 		OverwhelmingOnboarding: overwhelmingCount,
 		Contributors:           contributors,
-		CommonFiles:           commonFiles,
-		TimeWindow:            timeWindow,
+		CommonFiles:            commonFiles,
+		TimeWindow:             timeWindow,
 	}, nil
 }
 
@@ -381,7 +381,7 @@ func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathFilters 
 	fmt.Printf("Contributors analyzed: %d\n", stats.AnalyzedContributors)
 	fmt.Printf("Average files touched in first %d commits: %.1f\n", commitLimit, stats.AverageFilesTouched)
 	fmt.Println()
-	
+
 	// Summary by complexity
 	fmt.Printf("Onboarding Complexity Distribution:\n")
 	if stats.AnalyzedContributors == 0 {
@@ -400,26 +400,26 @@ func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathFilters 
 			float64(stats.OverwhelmingOnboarding)/float64(stats.AnalyzedContributors)*100)
 	}
 	fmt.Println()
-	
+
 	fmt.Println("Context:", onboardingBenchmarkContext)
 	fmt.Println()
-	
+
 	// Show detailed contributor analysis
 	displayCount := limit
 	if displayCount > len(stats.Contributors) {
 		displayCount = len(stats.Contributors)
 	}
-	
+
 	if displayCount > 0 {
 		fmt.Printf("Recent Contributors (showing %d):\n", displayCount)
 		for i := 0; i < displayCount; i++ {
 			contributor := stats.Contributors[i]
 			fmt.Printf("\n%d. %s — %s\n", i+1, contributor.Email, contributor.Status)
 			fmt.Printf("   First commit: %s\n", contributor.FirstCommitTime.Format("2006-01-02"))
-			fmt.Printf("   Files touched: %d (in first %d commits)\n", 
+			fmt.Printf("   Files touched: %d (in first %d commits)\n",
 				contributor.FilesTouched, contributor.CommitsAnalyzed)
 			fmt.Printf("   Recommendation: %s\n", contributor.Recommendation)
-			
+
 			if len(contributor.FilesModified) > 0 {
 				fmt.Printf("   Files: ")
 				for j, file := range contributor.FilesModified {
@@ -436,7 +436,7 @@ func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathFilters 
 			}
 		}
 	}
-	
+
 	// Show common entry point files
 	if len(stats.CommonFiles) > 0 {
 		fmt.Printf("\nMost Common Entry Point Files:\n")
@@ -444,17 +444,17 @@ func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathFilters 
 		if commonFilesLimit > len(stats.CommonFiles) {
 			commonFilesLimit = len(stats.CommonFiles)
 		}
-		
+
 		for i := 0; i < commonFilesLimit; i++ {
 			file := stats.CommonFiles[i]
-			fmt.Printf("  %d. %s (%d contributors, %.1f%%)\n", 
+			fmt.Printf("  %d. %s (%d contributors, %.1f%%)\n",
 				i+1, file.FilePath, file.TouchCount, file.Percentage)
 		}
 	}
-	
+
 	// Provide actionable insights
 	fmt.Printf("\nRecommendations:\n")
-	
+
 	recommendations := []struct {
 		count   int
 		message string
@@ -464,15 +464,15 @@ func printOnboardingFootprintStats(stats *OnboardingFootprintStats, pathFilters 
 		{stats.ModerateOnboarding, "contributors had moderate onboarding complexity"},
 		{stats.SimpleOnboarding, "contributors had simple, focused onboarding - excellent!"},
 	}
-	
+
 	for _, rec := range recommendations {
 		if rec.count > 0 {
 			fmt.Printf("  • %d %s\n", rec.count, rec.message)
 		}
 	}
-	
+
 	if stats.AverageFilesTouched > float64(onboardingComplexThreshold) {
-		fmt.Printf("  • Average files touched (%.1f) exceeds recommended threshold (%d)\n", 
+		fmt.Printf("  • Average files touched (%.1f) exceeds recommended threshold (%d)\n",
 			stats.AverageFilesTouched, onboardingComplexThreshold)
 		fmt.Printf("  • Consider creating simpler, more focused first issues for new contributors\n")
 	} else if stats.AverageFilesTouched <= float64(onboardingSimpleThreshold) {
@@ -506,10 +506,10 @@ easy to read makes it easier to write." — Robert C. Martin, Clean Code`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
 		pathFilters, source := getConfigPaths(cmd, "onboarding-footprint.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "onboarding-footprint.last")
 		limit, _ := cmd.Flags().GetInt("limit")
 		commitLimit, _ := cmd.Flags().GetInt("commit-limit")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "onboarding-footprint", lastArg, pathFilters, source)
 

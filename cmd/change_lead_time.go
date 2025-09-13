@@ -14,24 +14,24 @@ import (
 
 // DORA lead time thresholds in hours based on 2021 State of DevOps report
 const (
-	eliteLeadTimeThreshold  = 24.0   // <1 day (elite performers)
-	highLeadTimeThreshold   = 168.0  // <1 week (high performers)
-	mediumLeadTimeThreshold = 720.0  // <1 month (medium performers)
+	eliteLeadTimeThreshold  = 24.0  // <1 day (elite performers)
+	highLeadTimeThreshold   = 168.0 // <1 week (high performers)
+	mediumLeadTimeThreshold = 720.0 // <1 month (medium performers)
 	// Above 1 month is Low performance
 )
 
 // Performance level thresholds (percentage of commits in each category)
 const (
-	elitePerformanceThreshold  = 0.7  // 70%+ elite commits for Elite performance
-	highPerformanceThreshold   = 0.6  // 60%+ elite+high commits for High performance  
-	mediumPerformanceThreshold = 0.5  // 50%+ elite+high+medium commits for Medium performance
+	elitePerformanceThreshold  = 0.7 // 70%+ elite commits for Elite performance
+	highPerformanceThreshold   = 0.6 // 60%+ elite+high commits for High performance
+	mediumPerformanceThreshold = 0.5 // 50%+ elite+high+medium commits for Medium performance
 	// Below 50% elite+high+medium is Low performance
 )
 
 // Sentinel errors for iteration control
 var (
 	ErrFoundTarget = errors.New("target found")
-	ErrFoundCommit = errors.New("commit found") 
+	ErrFoundCommit = errors.New("commit found")
 )
 
 // CommitLeadTime represents a commit with its lead time measurement
@@ -47,18 +47,18 @@ type CommitLeadTime struct {
 
 // ChangeLeadTimeStats contains analysis results for change lead time
 type ChangeLeadTimeStats struct {
-	TotalCommits           int
-	AverageLeadTimeHours   float64
-	MedianLeadTimeHours    float64
-	P95LeadTimeHours       float64
-	EliteCommits           int
-	HighCommits            int
-	MediumCommits          int
-	LowCommits             int
-	DORAPerformanceLevel   string // "Elite", "High", "Medium", "Low", "Unknown"
-	SlowestCommits         []CommitLeadTime
-	FastestCommits         []CommitLeadTime
-	Commits                []CommitLeadTime
+	TotalCommits         int
+	AverageLeadTimeHours float64
+	MedianLeadTimeHours  float64
+	P95LeadTimeHours     float64
+	EliteCommits         int
+	HighCommits          int
+	MediumCommits        int
+	LowCommits           int
+	DORAPerformanceLevel string // "Elite", "High", "Medium", "Low", "Unknown"
+	SlowestCommits       []CommitLeadTime
+	FastestCommits       []CommitLeadTime
+	Commits              []CommitLeadTime
 }
 
 // changeLeadTimeCmd represents the change-lead-time command
@@ -94,10 +94,10 @@ The analysis identifies:
 		}
 
 		pathFilters, source := getConfigPaths(cmd, "change-lead-time.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "change-lead-time.last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		methodArg, _ := cmd.Flags().GetString("method")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "change-lead-time", lastArg, pathFilters, source)
 
@@ -139,7 +139,7 @@ func analyzeChangeLeadTime(repo *git.Repository, pathFilters []string, lastArg s
 
 	// Calculate comprehensive statistics
 	stats := calculateChangeLeadTimeStats(commits)
-	
+
 	return stats, nil
 }
 
@@ -365,7 +365,7 @@ func findCommitInTags(repo *git.Repository, commitHash plumbing.Hash) (time.Time
 			if err != nil {
 				return nil // Skip this tag
 			}
-			
+
 			// Check if our commit is reachable from this tag
 			isReachable, err := isCommitReachableFrom(repo, commitHash, commit.Hash)
 			if err == nil && isReachable {
@@ -390,7 +390,7 @@ func findCommitInTags(repo *git.Repository, commitHash plumbing.Hash) (time.Time
 	if err != nil {
 		return time.Time{}, err
 	}
-	
+
 	if !found {
 		return time.Time{}, fmt.Errorf("commit not found in tags")
 	}
@@ -518,7 +518,7 @@ func calculatePercentile(values []float64, percentile int) float64 {
 
 	// Calculate percentile index
 	index := float64(percentile) / 100.0 * float64(len(sorted)-1)
-	
+
 	// Handle edge cases
 	if index <= 0 {
 		return sorted[0]
@@ -531,7 +531,7 @@ func calculatePercentile(values []float64, percentile int) float64 {
 	lower := int(index)
 	upper := lower + 1
 	weight := index - float64(lower)
-	
+
 	return sorted[lower]*(1-weight) + sorted[upper]*weight
 }
 
@@ -574,7 +574,7 @@ func printChangeLeadTimeStats(stats *ChangeLeadTimeStats, limit int) {
 		if displayLimit > limit {
 			displayLimit = limit
 		}
-		
+
 		fmt.Printf("Fastest %d Commits:\n", displayLimit)
 		for i := 0; i < displayLimit; i++ {
 			commit := stats.FastestCommits[i]
@@ -590,7 +590,7 @@ func printChangeLeadTimeStats(stats *ChangeLeadTimeStats, limit int) {
 		if displayLimit > limit {
 			displayLimit = limit
 		}
-		
+
 		fmt.Printf("Slowest %d Commits:\n", displayLimit)
 		for i := 0; i < displayLimit; i++ {
 			commit := stats.SlowestCommits[i]
@@ -621,7 +621,7 @@ func printChangeLeadTimeStats(stats *ChangeLeadTimeStats, limit int) {
 	default:
 		fmt.Println("  • Insufficient data for performance assessment")
 	}
-	
+
 	if stats.P95LeadTimeHours > 720 { // >30 days
 		fmt.Println("  • 95th percentile lead time is very high - investigate outliers")
 	}

@@ -36,9 +36,9 @@ import (
 
 const (
 	// Commit size thresholds based on Google's Small CLs guidelines
-	commitSizeReasonableThreshold = 100  // ~100 lines is reasonable
-	commitSizeLargeThreshold      = 1000 // 1000+ lines is too large
-	commitSizeFilesReasonableThreshold = 10 // Reasonable number of files
+	commitSizeReasonableThreshold      = 100  // ~100 lines is reasonable
+	commitSizeLargeThreshold           = 1000 // 1000+ lines is too large
+	commitSizeFilesReasonableThreshold = 10   // Reasonable number of files
 )
 
 const commitSizeBenchmarkContext = "Large commits reduce review effectiveness and rollback safety. According to Google's Small CLs guidelines, reviews are most effective when changes are around 100 lines; 1000+ lines is considered too large."
@@ -60,10 +60,10 @@ type CommitSizeStats struct {
 // Uses Google's Small CLs guidelines: ~100 lines reasonable, 1000+ lines too large
 func calculateCommitRisk(additions, deletions, filesChanged int) (string, int) {
 	totalChanges := additions + deletions
-	
+
 	// Calculate risk score: prioritize large changes and many files
 	riskScore := totalChanges + (filesChanged * 10)
-	
+
 	var riskLevel string
 	switch {
 	case totalChanges >= commitSizeLargeThreshold || filesChanged >= 50:
@@ -75,7 +75,7 @@ func calculateCommitRisk(additions, deletions, filesChanged int) (string, int) {
 	default:
 		riskLevel = "Low"
 	}
-	
+
 	return riskLevel, riskScore
 }
 
@@ -83,11 +83,11 @@ func calculateCommitRisk(additions, deletions, filesChanged int) (string, int) {
 func sortCommitsByRisk(commits []CommitSizeStats) []CommitSizeStats {
 	sorted := make([]CommitSizeStats, len(commits))
 	copy(sorted, commits)
-	
+
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].RiskScore > sorted[j].RiskScore
 	})
-	
+
 	return sorted
 }
 
@@ -99,16 +99,16 @@ func filterCommitsByRisk(commits []CommitSizeStats, minRisk string) []CommitSize
 		"High":     3,
 		"Critical": 4,
 	}
-	
+
 	minLevel := riskLevels[minRisk]
 	var filtered []CommitSizeStats
-	
+
 	for _, commit := range commits {
 		if riskLevels[commit.RiskLevel] >= minLevel {
 			filtered = append(filtered, commit)
 		}
 	}
-	
+
 	return filtered
 }
 
@@ -116,7 +116,7 @@ func filterCommitsByRisk(commits []CommitSizeStats, minRisk string) []CommitSize
 func truncateMessage(message string, maxLen int) string {
 	// First, get the first line only (before any newlines)
 	firstLine := strings.Split(message, "\n")[0]
-	
+
 	if len(firstLine) <= maxLen {
 		return firstLine
 	}
@@ -126,14 +126,14 @@ func truncateMessage(message string, maxLen int) string {
 // processCommitForSize processes a single commit to extract size statistics.
 func processCommitForSize(c *object.Commit, pathFilters []string) (int, int, int, error) {
 	var additions, deletions, filesChanged int
-	
+
 	if c.NumParents() == 0 {
 		// Initial commit - count all files as additions
 		tree, err := c.Tree()
 		if err != nil {
 			return 0, 0, 0, err
 		}
-		
+
 		err = tree.Files().ForEach(func(f *object.File) error {
 			if !matchesPathFilter(f.Name, pathFilters) {
 				return nil
@@ -148,11 +148,11 @@ func processCommitForSize(c *object.Commit, pathFilters []string) (int, int, int
 		})
 		return additions, deletions, filesChanged, err
 	}
-	
+
 	// Regular commit - calculate diff
 	parents := c.Parents()
 	defer parents.Close()
-	
+
 	parentCount := 0
 	fileSet := make(map[string]bool) // Track unique files across all parents
 	err := parents.ForEach(func(parent *object.Commit) error {
@@ -162,53 +162,53 @@ func processCommitForSize(c *object.Commit, pathFilters []string) (int, int, int
 			log.Printf("failed to generate patch between parent %s and commit %s: %v", parent.Hash.String(), c.Hash.String(), err)
 			return nil
 		}
-		
+
 		for _, stat := range patch.Stats() {
 			if !matchesPathFilter(stat.Name, pathFilters) {
 				continue
 			}
-			
+
 			additions += stat.Addition
 			deletions += stat.Deletion
 			fileSet[stat.Name] = true
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	
+
 	filesChanged = len(fileSet)
-	
+
 	// For merge commits, we need to avoid double-counting line changes
 	// that appear in multiple parent diffs. Since we're already tracking unique files,
 	// we only need to adjust line counts to estimate actual changes in the merge.
 	if parentCount > 1 {
 		additions, deletions = applyMergeCommitAdjustment(additions, deletions, parentCount)
 	}
-	
+
 	return additions, deletions, filesChanged, err
 }
 
 // printCommitSizeStats prints commit size statistics in a formatted table.
 func printCommitSizeStats(commits []CommitSizeStats, limit int) {
 	fmt.Printf("\nTop %d commits by risk:\n", limit)
-	fmt.Printf("%-12s %-50s %-20s %8s %8s %6s %6s %s\n", 
+	fmt.Printf("%-12s %-50s %-20s %8s %8s %6s %6s %s\n",
 		"Hash", "Message", "Author", "Added", "Deleted", "Files", "Score", "Risk")
-	fmt.Printf("%-12s %-50s %-20s %8s %8s %6s %6s %s\n", 
-		strings.Repeat("-", 12), strings.Repeat("-", 50), strings.Repeat("-", 20), 
+	fmt.Printf("%-12s %-50s %-20s %8s %8s %6s %6s %s\n",
+		strings.Repeat("-", 12), strings.Repeat("-", 50), strings.Repeat("-", 20),
 		"------", "-------", "-----", "-----", "----")
-	
+
 	for i, commit := range commits {
 		if i >= limit {
 			break
 		}
-		
+
 		truncatedMessage := truncateMessage(commit.Message, 50)
 		truncatedAuthor := truncateMessage(commit.Author, 20)
-		
+
 		fmt.Printf("%-12s %-50s %-20s %8d %8d %6d %6d %s\n",
 			commit.Hash[:12], truncatedMessage, truncatedAuthor,
 			commit.Additions, commit.Deletions, commit.FilesChanged, commit.RiskScore, commit.RiskLevel)
@@ -221,7 +221,7 @@ func printRiskSummary(commits []CommitSizeStats) {
 	for _, commit := range commits {
 		riskCounts[commit.RiskLevel]++
 	}
-	
+
 	fmt.Printf("\nRisk Distribution:\n")
 	fmt.Printf("  Low:      %d commits\n", riskCounts["Low"])
 	fmt.Printf("  Medium:   %d commits\n", riskCounts["Medium"])
@@ -245,12 +245,12 @@ Risk Levels:
 Thresholds are based on research showing reviews are most effective under 400 lines.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "commit-size.last")
 		pathFilters, source := getConfigPaths(cmd, "commit-size.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		minRiskArg, _ := cmd.Flags().GetString("min-risk")
 		summaryArg, _ := cmd.Flags().GetBool("summary")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "commit-size", lastArg, pathFilters, source)
 
@@ -285,15 +285,15 @@ Thresholds are based on research showing reviews are most effective under 400 li
 			if !since.IsZero() && c.Committer.When.Before(since) {
 				return storer.ErrStop
 			}
-			
+
 			additions, deletions, filesChanged, err := processCommitForSize(c, pathFilters)
 			if err != nil {
 				log.Printf("Error processing commit %s: %v", c.Hash.String(), err)
 				return nil
 			}
-			
+
 			riskLevel, riskScore := calculateCommitRisk(additions, deletions, filesChanged)
-			
+
 			commit := CommitSizeStats{
 				Hash:         c.Hash.String(),
 				Message:      strings.TrimSpace(c.Message),
@@ -305,7 +305,7 @@ Thresholds are based on research showing reviews are most effective under 400 li
 				RiskScore:    riskScore,
 				RiskLevel:    riskLevel,
 			}
-			
+
 			commits = append(commits, commit)
 			return nil
 		})

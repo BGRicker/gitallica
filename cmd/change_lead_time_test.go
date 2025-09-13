@@ -10,8 +10,8 @@ func TestChangeLeadTimeAnalysis(t *testing.T) {
 	// Test data: commits with different lead times
 	commits := []CommitLeadTime{
 		{Hash: "abc123", CommitTime: time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC), LeadTimeHours: 4.0},   // Elite: 4 hours
-		{Hash: "def456", CommitTime: time.Date(2024, 1, 2, 9, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 4, 9, 0, 0, 0, time.UTC), LeadTimeHours: 48.0},     // High: 2 days
-		{Hash: "ghi789", CommitTime: time.Date(2024, 1, 5, 8, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 15, 8, 0, 0, 0, time.UTC), LeadTimeHours: 240.0},   // Medium: 10 days
+		{Hash: "def456", CommitTime: time.Date(2024, 1, 2, 9, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 4, 9, 0, 0, 0, time.UTC), LeadTimeHours: 48.0},    // High: 2 days
+		{Hash: "ghi789", CommitTime: time.Date(2024, 1, 5, 8, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 15, 8, 0, 0, 0, time.UTC), LeadTimeHours: 240.0},  // Medium: 10 days
 		{Hash: "jkl012", CommitTime: time.Date(2024, 1, 10, 7, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 2, 20, 7, 0, 0, 0, time.UTC), LeadTimeHours: 984.0}, // Low: 41 days
 		{Hash: "mno345", CommitTime: time.Date(2024, 1, 15, 6, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 15, 18, 0, 0, 0, time.UTC), LeadTimeHours: 12.0}, // Elite: 12 hours
 	}
@@ -51,7 +51,7 @@ func TestChangeLeadTimeAnalysis(t *testing.T) {
 		t.Errorf("Expected LowCommits = 1, got %d", stats.LowCommits)
 	}
 
-	// Test DORA performance level  
+	// Test DORA performance level
 	// Elite: 2/5 = 40%, Elite+High: 3/5 = 60% → qualifies as High performance
 	expectedPerformance := "High" // 60% elite+high commits meets high threshold
 	if stats.DORAPerformanceLevel != expectedPerformance {
@@ -61,58 +61,58 @@ func TestChangeLeadTimeAnalysis(t *testing.T) {
 
 func TestClassifyDORALeadTime(t *testing.T) {
 	tests := []struct {
-		name                string
-		leadTimeHours       float64
+		name                   string
+		leadTimeHours          float64
 		expectedClassification string
 	}{
 		{
-			name:                "elite same day",
-			leadTimeHours:       4.0,
+			name:                   "elite same day",
+			leadTimeHours:          4.0,
 			expectedClassification: "Elite",
 		},
 		{
-			name:                "elite boundary",
-			leadTimeHours:       23.9, // Just under 24 hours
+			name:                   "elite boundary",
+			leadTimeHours:          23.9, // Just under 24 hours
 			expectedClassification: "Elite",
 		},
 		{
-			name:                "high one day",
-			leadTimeHours:       24.0,
+			name:                   "high one day",
+			leadTimeHours:          24.0,
 			expectedClassification: "High",
 		},
 		{
-			name:                "high few days",
-			leadTimeHours:       72.0, // 3 days
+			name:                   "high few days",
+			leadTimeHours:          72.0, // 3 days
 			expectedClassification: "High",
 		},
 		{
-			name:                "high boundary",
-			leadTimeHours:       167.9, // Just under 7 days
+			name:                   "high boundary",
+			leadTimeHours:          167.9, // Just under 7 days
 			expectedClassification: "High",
 		},
 		{
-			name:                "medium one week",
-			leadTimeHours:       168.0, // 7 days
+			name:                   "medium one week",
+			leadTimeHours:          168.0, // 7 days
 			expectedClassification: "Medium",
 		},
 		{
-			name:                "medium few weeks",
-			leadTimeHours:       480.0, // 20 days
+			name:                   "medium few weeks",
+			leadTimeHours:          480.0, // 20 days
 			expectedClassification: "Medium",
 		},
 		{
-			name:                "medium boundary",
-			leadTimeHours:       719.9, // Just under 30 days
+			name:                   "medium boundary",
+			leadTimeHours:          719.9, // Just under 30 days
 			expectedClassification: "Medium",
 		},
 		{
-			name:                "low one month",
-			leadTimeHours:       720.0, // 30 days
+			name:                   "low one month",
+			leadTimeHours:          720.0, // 30 days
 			expectedClassification: "Low",
 		},
 		{
-			name:                "low multiple months",
-			leadTimeHours:       2160.0, // 90 days
+			name:                   "low multiple months",
+			leadTimeHours:          2160.0, // 90 days
 			expectedClassification: "Low",
 		},
 	}
@@ -120,7 +120,7 @@ func TestClassifyDORALeadTime(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			classification := classifyDORALeadTime(tt.leadTimeHours)
-			
+
 			if classification != tt.expectedClassification {
 				t.Errorf("Expected classification = %s, got %s", tt.expectedClassification, classification)
 			}
@@ -188,7 +188,7 @@ func TestClassifyDORAPerformanceLevel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			performance := classifyDORAPerformanceLevel(tt.eliteCommits, tt.highCommits, tt.mediumCommits, tt.lowCommits, tt.totalCommits)
-			
+
 			if performance != tt.expectedPerformance {
 				t.Errorf("Expected performance = %s, got %s", tt.expectedPerformance, performance)
 			}
@@ -234,7 +234,7 @@ func TestChangeLeadTimeEdgeCases(t *testing.T) {
 	// Test empty commits
 	emptyCommits := []CommitLeadTime{}
 	stats := calculateChangeLeadTimeStats(emptyCommits)
-	
+
 	if stats.TotalCommits != 0 {
 		t.Errorf("Expected TotalCommits = 0 for empty commits, got %d", stats.TotalCommits)
 	}
@@ -247,7 +247,7 @@ func TestChangeLeadTimeEdgeCases(t *testing.T) {
 		{Hash: "abc123", CommitTime: time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC), DeployTime: time.Date(2024, 1, 1, 14, 0, 0, 0, time.UTC), LeadTimeHours: 4.0},
 	}
 	singleStats := calculateChangeLeadTimeStats(singleCommit)
-	
+
 	if singleStats.TotalCommits != 1 {
 		t.Errorf("Expected TotalCommits = 1 for single commit, got %d", singleStats.TotalCommits)
 	}

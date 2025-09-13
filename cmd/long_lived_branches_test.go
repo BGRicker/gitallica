@@ -59,53 +59,53 @@ func TestLongLivedBranchesAnalysis(t *testing.T) {
 
 func TestClassifyBranchRisk(t *testing.T) {
 	tests := []struct {
-		name        string
-		ageInDays   float64
+		name         string
+		ageInDays    float64
 		expectedRisk string
 	}{
 		{
-			name:        "same day branch",
-			ageInDays:   0.5,
+			name:         "same day branch",
+			ageInDays:    0.5,
 			expectedRisk: "Healthy",
 		},
 		{
-			name:        "one day old",
-			ageInDays:   1.0,
+			name:         "one day old",
+			ageInDays:    1.0,
 			expectedRisk: "Healthy",
 		},
 		{
-			name:        "two day boundary",
-			ageInDays:   2.0,
+			name:         "two day boundary",
+			ageInDays:    2.0,
 			expectedRisk: "Healthy",
 		},
 		{
-			name:        "three day boundary", 
-			ageInDays:   3.0,
+			name:         "three day boundary",
+			ageInDays:    3.0,
 			expectedRisk: "Warning",
 		},
 		{
-			name:        "five day old",
-			ageInDays:   5.0,
+			name:         "five day old",
+			ageInDays:    5.0,
 			expectedRisk: "Warning",
 		},
 		{
-			name:        "seven day boundary",
-			ageInDays:   7.0,
-			expectedRisk: "Warning", 
+			name:         "seven day boundary",
+			ageInDays:    7.0,
+			expectedRisk: "Warning",
 		},
 		{
-			name:        "eight day old",
-			ageInDays:   8.0,
+			name:         "eight day old",
+			ageInDays:    8.0,
 			expectedRisk: "Risky",
 		},
 		{
-			name:        "fifteen day old",
-			ageInDays:   15.0,
+			name:         "fifteen day old",
+			ageInDays:    15.0,
 			expectedRisk: "Risky",
 		},
 		{
-			name:        "thirty day old",
-			ageInDays:   30.0,
+			name:         "thirty day old",
+			ageInDays:    30.0,
 			expectedRisk: "Critical",
 		},
 	}
@@ -113,7 +113,7 @@ func TestClassifyBranchRisk(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			risk := classifyBranchRisk(tt.ageInDays)
-			
+
 			if risk != tt.expectedRisk {
 				t.Errorf("Expected risk = %s, got %s", tt.expectedRisk, risk)
 			}
@@ -123,10 +123,10 @@ func TestClassifyBranchRisk(t *testing.T) {
 
 func TestClassifyTrunkBasedCompliance(t *testing.T) {
 	tests := []struct {
-		name                string
-		healthyBranches     int
-		totalBranches       int
-		expectedCompliance  string
+		name               string
+		healthyBranches    int
+		totalBranches      int
+		expectedCompliance string
 	}{
 		{
 			name:               "excellent compliance",
@@ -169,7 +169,7 @@ func TestClassifyTrunkBasedCompliance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			compliance := classifyTrunkBasedCompliance(tt.healthyBranches, tt.totalBranches)
-			
+
 			if compliance != tt.expectedCompliance {
 				t.Errorf("Expected compliance = %s, got %s", tt.expectedCompliance, compliance)
 			}
@@ -179,7 +179,7 @@ func TestClassifyTrunkBasedCompliance(t *testing.T) {
 
 func TestCalculateBranchAge(t *testing.T) {
 	now := time.Now()
-	
+
 	tests := []struct {
 		name         string
 		createdTime  time.Time
@@ -210,7 +210,7 @@ func TestCalculateBranchAge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			age := calculateBranchAge(tt.createdTime, now)
-			
+
 			tolerance := 0.1
 			if abs(age-tt.expectedDays) > tolerance {
 				t.Errorf("Expected age ≈ %.1f days, got %.1f", tt.expectedDays, age)
@@ -223,7 +223,7 @@ func TestLongLivedBranchesEdgeCases(t *testing.T) {
 	// Test empty branches
 	emptyBranches := []BranchInfo{}
 	stats := calculateLongLivedBranchesStats(emptyBranches)
-	
+
 	if stats.TotalBranches != 0 {
 		t.Errorf("Expected TotalBranches = 0 for empty branches, got %d", stats.TotalBranches)
 	}
@@ -236,7 +236,7 @@ func TestLongLivedBranchesEdgeCases(t *testing.T) {
 		{Name: "feature/quick", AgeInDays: 1, Status: "active"},
 	}
 	singleStats := calculateLongLivedBranchesStats(singleBranch)
-	
+
 	if singleStats.TotalBranches != 1 {
 		t.Errorf("Expected TotalBranches = 1 for single branch, got %d", singleStats.TotalBranches)
 	}

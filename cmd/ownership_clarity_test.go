@@ -33,12 +33,12 @@ const (
 // TestCalculateOwnershipClarity tests ownership clarity calculation logic
 func TestCalculateOwnershipClarity(t *testing.T) {
 	tests := []struct {
-		name                   string
-		commitsByContributor   map[string]int
-		totalCommits          int
-		expectedTopOwnership  float64
-		expectedStatus        string
-		expectedContributors  int
+		name                 string
+		commitsByContributor map[string]int
+		totalCommits         int
+		expectedTopOwnership float64
+		expectedStatus       string
+		expectedContributors int
 	}{
 		{
 			name: "clear_ownership_60_percent",
@@ -67,11 +67,11 @@ func TestCalculateOwnershipClarity(t *testing.T) {
 		{
 			name: "diffuse_ownership_no_clear_owner",
 			commitsByContributor: map[string]int{
-				"alice@example.com":   4,
-				"bob@example.com":     4,
-				"carol@example.com":   4,
-				"david@example.com":   4,
-				"eve@example.com":     4,
+				"alice@example.com": 4,
+				"bob@example.com":   4,
+				"carol@example.com": 4,
+				"david@example.com": 4,
+				"eve@example.com":   4,
 			},
 			totalCommits:         20,
 			expectedTopOwnership: 0.20,
@@ -134,17 +134,17 @@ func TestCalculateOwnershipClarity(t *testing.T) {
 		{
 			name: "minimal_contributors_for_diffuse_analysis",
 			commitsByContributor: map[string]int{
-				"alice@example.com":   2,
-				"bob@example.com":     2,
-				"carol@example.com":   2,
-				"david@example.com":   2,
-				"eve@example.com":     2,
-				"frank@example.com":   2,
-				"grace@example.com":   2,
-				"henry@example.com":   2,
-				"iris@example.com":    2,
-				"jack@example.com":    2,
-				"kate@example.com":    2,
+				"alice@example.com": 2,
+				"bob@example.com":   2,
+				"carol@example.com": 2,
+				"david@example.com": 2,
+				"eve@example.com":   2,
+				"frank@example.com": 2,
+				"grace@example.com": 2,
+				"henry@example.com": 2,
+				"iris@example.com":  2,
+				"jack@example.com":  2,
+				"kate@example.com":  2,
 			},
 			totalCommits:         22,
 			expectedTopOwnership: 0.091,
@@ -156,7 +156,7 @@ func TestCalculateOwnershipClarity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			topOwnership, status, contributors := calculateOwnershipClarity(tt.commitsByContributor)
-			
+
 			if floatDifference(topOwnership, tt.expectedTopOwnership) > testToleranceOwnership { // Allow small floating point differences
 				t.Errorf("calculateOwnershipClarity() topOwnership = %v, want %v", topOwnership, tt.expectedTopOwnership)
 			}
@@ -181,59 +181,59 @@ func floatDifference(a, b float64) float64 {
 // TestClassifyOwnershipClarity tests ownership classification logic
 func TestClassifyOwnershipClarity(t *testing.T) {
 	tests := []struct {
-		name                 string
-		topOwnership        float64
-		totalContributors   int
-		expectedStatus      string
+		name                   string
+		topOwnership           float64
+		totalContributors      int
+		expectedStatus         string
 		expectedRecommendation string
 	}{
 		{
 			name:                   "healthy_clear_ownership",
-			topOwnership:          0.60,
-			totalContributors:     3,
-			expectedStatus:        "Healthy",
+			topOwnership:           0.60,
+			totalContributors:      3,
+			expectedStatus:         "Healthy",
 			expectedRecommendation: "Good ownership balance",
 		},
 		{
 			name:                   "healthy_borderline_ownership",
-			topOwnership:          0.50,
-			totalContributors:     4,
-			expectedStatus:        "Healthy",
+			topOwnership:           0.50,
+			totalContributors:      4,
+			expectedStatus:         "Healthy",
 			expectedRecommendation: "Good ownership balance",
 		},
 		{
 			name:                   "caution_too_concentrated",
-			topOwnership:          0.85,
-			totalContributors:     5,
-			expectedStatus:        "Caution",
+			topOwnership:           0.85,
+			totalContributors:      5,
+			expectedStatus:         "Caution",
 			expectedRecommendation: "Consider encouraging more contributors to avoid bottlenecks",
 		},
 		{
 			name:                   "warning_diffuse_ownership",
-			topOwnership:          0.35,
-			totalContributors:     8,
-			expectedStatus:        "Warning",
+			topOwnership:           0.35,
+			totalContributors:      8,
+			expectedStatus:         "Warning",
 			expectedRecommendation: "Consider assigning clearer ownership or primary maintainers",
 		},
 		{
 			name:                   "critical_extremely_diffuse",
-			topOwnership:          0.15,
-			totalContributors:     12,
-			expectedStatus:        "Critical",
+			topOwnership:           0.15,
+			totalContributors:      12,
+			expectedStatus:         "Critical",
 			expectedRecommendation: "Urgent: assign primary maintainers for clear ownership",
 		},
 		{
 			name:                   "healthy_single_owner",
-			topOwnership:          1.00,
-			totalContributors:     1,
-			expectedStatus:        "Healthy",
+			topOwnership:           1.00,
+			totalContributors:      1,
+			expectedStatus:         "Healthy",
 			expectedRecommendation: "Good ownership balance",
 		},
 		{
 			name:                   "healthy_small_team",
-			topOwnership:          0.30,
-			totalContributors:     3, // Small team, diffuse ownership is okay
-			expectedStatus:        "Healthy",
+			topOwnership:           0.30,
+			totalContributors:      3, // Small team, diffuse ownership is okay
+			expectedStatus:         "Healthy",
 			expectedRecommendation: "Good ownership balance",
 		},
 	}
@@ -241,7 +241,7 @@ func TestClassifyOwnershipClarity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			status, recommendation := classifyOwnershipClarity(tt.topOwnership, tt.totalContributors)
-			
+
 			if status != tt.expectedStatus {
 				t.Errorf("classifyOwnershipClarity() status = %v, want %v", status, tt.expectedStatus)
 			}
@@ -258,11 +258,11 @@ func TestOwnershipClarityThresholds(t *testing.T) {
 	if ownershipStrongThreshold != 0.80 {
 		t.Errorf("Expected strong ownership threshold to be 0.80, got %f", ownershipStrongThreshold)
 	}
-	
+
 	if ownershipRiskThreshold != 9 {
 		t.Errorf("Expected risk threshold to be 9, got %d", ownershipRiskThreshold)
 	}
-	
+
 	if ownershipMinContributorsForAnalysis != 3 {
 		t.Errorf("Expected min contributors for analysis to be 3, got %d", ownershipMinContributorsForAnalysis)
 	}
@@ -271,16 +271,16 @@ func TestOwnershipClarityThresholds(t *testing.T) {
 // TestOwnershipClarityEdgeCases tests edge cases and error conditions
 func TestOwnershipClarityEdgeCases(t *testing.T) {
 	tests := []struct {
-		name                   string
-		commitsByContributor   map[string]int
-		expectedTopOwnership  float64
-		expectedStatus        string
+		name                 string
+		commitsByContributor map[string]int
+		expectedTopOwnership float64
+		expectedStatus       string
 	}{
 		{
-			name:                   "empty_commits_map",
-			commitsByContributor:   map[string]int{},
-			expectedTopOwnership:  0.0,
-			expectedStatus:        "Unknown",
+			name:                 "empty_commits_map",
+			commitsByContributor: map[string]int{},
+			expectedTopOwnership: 0.0,
+			expectedStatus:       "Unknown",
 		},
 		{
 			name: "zero_commits_contributors",
@@ -315,7 +315,7 @@ func TestOwnershipClarityEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			topOwnership, status, _ := calculateOwnershipClarity(tt.commitsByContributor)
-			
+
 			if floatDifference(topOwnership, tt.expectedTopOwnership) > testToleranceOwnership {
 				t.Errorf("calculateOwnershipClarity() topOwnership = %v, want %v", topOwnership, tt.expectedTopOwnership)
 			}

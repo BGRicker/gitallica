@@ -36,8 +36,8 @@ import (
 
 const (
 	// Dead zone threshold - teams should set context-specific thresholds
-	deadZoneThresholdMonths = 12  // Default threshold, teams should customize
-	deadZoneLowRiskThresholdMonths = 24  // Low risk threshold
+	deadZoneThresholdMonths         = 12 // Default threshold, teams should customize
+	deadZoneLowRiskThresholdMonths  = 24 // Low risk threshold
 	deadZoneHighRiskThresholdMonths = 36 // High risk threshold
 )
 
@@ -45,21 +45,21 @@ const deadZonesBenchmarkContext = "Code age should guide architectural decisions
 
 // DeadZoneFileStats represents statistics for a potentially stale file
 type DeadZoneFileStats struct {
-	Path         string
-	LastModified time.Time
-	AgeInMonths  int
-	Size         int64
-	RiskLevel    string
+	Path           string
+	LastModified   time.Time
+	AgeInMonths    int
+	Size           int64
+	RiskLevel      string
 	Recommendation string
 }
 
 // DeadZoneAnalysis represents the overall dead zone analysis
 type DeadZoneAnalysis struct {
-	TimeWindow     string
-	TotalFiles     int
-	DeadZoneFiles  []DeadZoneFileStats
-	ActiveFiles    int
-	DeadZoneCount  int
+	TimeWindow      string
+	TotalFiles      int
+	DeadZoneFiles   []DeadZoneFileStats
+	ActiveFiles     int
+	DeadZoneCount   int
 	DeadZonePercent float64
 }
 
@@ -68,21 +68,21 @@ func calculateFileAge(lastModified, referenceTime time.Time) int {
 	if lastModified.IsZero() || lastModified.After(referenceTime) {
 		return 0
 	}
-	
+
 	years := referenceTime.Year() - lastModified.Year()
 	months := int(referenceTime.Month()) - int(lastModified.Month())
-	
+
 	totalMonths := years*12 + months
-	
+
 	// Adjust if we haven't reached the day of the month yet
 	if referenceTime.Day() < lastModified.Day() {
 		totalMonths--
 	}
-	
+
 	if totalMonths < 0 {
 		return 0
 	}
-	
+
 	return totalMonths
 }
 
@@ -118,33 +118,33 @@ func findFileInCommitHistory(repo *git.Repository, fileName string, handler file
 func getLastModifiedFromGitHistory(repo *git.Repository, fileName string) (time.Time, bool, error) {
 	var lastCommitTime time.Time
 	var found bool
-	
+
 	// First try to find the file in recent history (within reasonable time window)
 	err := findFileInCommitHistoryWithTimeWindow(repo, fileName, func(c *object.Commit) error {
 		lastCommitTime = c.Committer.When
 		found = true
 		return storer.ErrStop
 	}, time.Now().AddDate(-2, 0, 0)) // Look back 2 years
-	
+
 	if err != nil && err != storer.ErrStop {
 		return time.Time{}, false, err
 	}
-	
+
 	if found {
 		return lastCommitTime, true, nil
 	}
-	
+
 	// If not found in recent history, try the entire git history
 	err = findFileInCommitHistoryWithTimeWindow(repo, fileName, func(c *object.Commit) error {
 		lastCommitTime = c.Committer.When
 		found = true
 		return storer.ErrStop
 	}, time.Time{}) // No time restriction
-	
+
 	if err != nil && err != storer.ErrStop {
 		return time.Time{}, false, err
 	}
-	
+
 	return lastCommitTime, found, nil
 }
 
@@ -154,19 +154,19 @@ func findFileInCommitHistoryWithTimeWindow(repo *git.Repository, fileName string
 	if err != nil {
 		return err
 	}
-	
+
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return err
 	}
 	defer cIter.Close()
-	
+
 	return cIter.ForEach(func(c *object.Commit) error {
 		// Apply time window filter if specified
 		if !since.IsZero() && c.Committer.When.Before(since) {
 			return storer.ErrStop
 		}
-		
+
 		// Handle merge commits by diffing against their first parent.
 		// This is a common strategy to identify changes introduced by a merge.
 		var parentTree *object.Tree
@@ -180,19 +180,19 @@ func findFileInCommitHistoryWithTimeWindow(repo *git.Repository, fileName string
 				return nil
 			}
 		}
-		
+
 		tree, err := c.Tree()
 		if err != nil {
 			return nil
 		}
-		
+
 		if parentTree != nil {
 			// Compare with parent to get changed files
 			changes, err := tree.Diff(parentTree)
 			if err != nil {
 				return nil
 			}
-			
+
 			for _, change := range changes {
 				if change.To.Name == fileName {
 					return handler(c)
@@ -205,7 +205,7 @@ func findFileInCommitHistoryWithTimeWindow(repo *git.Repository, fileName string
 				return handler(c)
 			}
 		}
-		
+
 		return nil
 	})
 }
@@ -217,12 +217,12 @@ func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, sin
 		return fmt.Errorf("could not get commits: %v", err)
 	}
 	defer cIter.Close()
-	
+
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if !since.IsZero() && c.Committer.When.Before(since) {
 			return storer.ErrStop
 		}
-		
+
 		// Handle merge commits by diffing against their first parent.
 		// This is a common strategy to identify changes introduced by a merge.
 		var parentTree *object.Tree
@@ -236,29 +236,29 @@ func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, sin
 				return nil
 			}
 		}
-		
+
 		tree, err := c.Tree()
 		if err != nil {
 			return nil
 		}
-		
+
 		if parentTree != nil {
 			// Compare with parent to get changed files
 			changes, err := tree.Diff(parentTree)
 			if err != nil {
 				return nil
 			}
-			
+
 			for _, change := range changes {
 				if change.To.Name == "" {
 					continue // skip deletions
 				}
-				
+
 				// Apply path filter if specified
 				if !matchesPathFilter(change.To.Name, pathFilters) {
 					continue
 				}
-				
+
 				// Update last modified time for this file (only if not already set, since we iterate newest to oldest)
 				if _, exists := fileLastModified[change.To.Name]; !exists {
 					fileLastModified[change.To.Name] = c.Committer.When
@@ -270,7 +270,7 @@ func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, sin
 				if !matchesPathFilter(f.Name, pathFilters) {
 					return nil
 				}
-				
+
 				if _, exists := fileLastModified[f.Name]; !exists {
 					fileLastModified[f.Name] = c.Committer.When
 				}
@@ -280,10 +280,10 @@ func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, sin
 				return err
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	return err
 }
 
@@ -291,11 +291,11 @@ func buildFileModificationMap(repo *git.Repository, ref *plumbing.Reference, sin
 func sortDeadZonesByAge(files []DeadZoneFileStats) []DeadZoneFileStats {
 	sorted := make([]DeadZoneFileStats, len(files))
 	copy(sorted, files)
-	
+
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].AgeInMonths > sorted[j].AgeInMonths
 	})
-	
+
 	return sorted
 }
 
@@ -305,48 +305,48 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathFilters []strin
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
 	}
-	
+
 	// Track the last modification time for each file
 	fileLastModified := make(map[string]time.Time)
-	
+
 	// Build comprehensive file modification map efficiently
 	err = buildFileModificationMap(repo, ref, since, pathFilters, fileLastModified)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
 	}
-	
+
 	// Get current file tree to check which files still exist
 	headCommit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD commit: %v", err)
 	}
-	
+
 	tree, err := headCommit.Tree()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
-	
+
 	// Build analysis for current files
 	var deadZoneFiles []DeadZoneFileStats
 	var activeFiles int
 	var totalFiles int
 	now := time.Now()
-	
+
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Apply path filter if specified
 		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
-		
+
 		// Skip binary files
 		isBinary, err := f.IsBinary()
 		if err != nil || isBinary {
 			return nil
 		}
-		
+
 		totalFiles++
-		
+
 		// Get last modified time for this file
 		lastModified, exists := fileLastModified[f.Name]
 		if !exists {
@@ -355,10 +355,10 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathFilters []strin
 			// This avoids expensive individual git history lookups for every file
 			lastModified = time.Now().Add(-DefaultFallbackFileAge)
 		}
-		
+
 		ageInMonths := calculateFileAge(lastModified, now)
 		isDead := isDeadZone(lastModified, now)
-		
+
 		if isDead {
 			// Get file size from blob metadata (best effort - not critical for dead zone analysis)
 			var size int64
@@ -373,9 +373,9 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathFilters []strin
 					size = 0
 				}
 			}
-			
+
 			riskLevel, recommendation := classifyDeadZoneRisk(ageInMonths)
-			
+
 			deadZoneFiles = append(deadZoneFiles, DeadZoneFileStats{
 				Path:           f.Name,
 				LastModified:   lastModified,
@@ -387,28 +387,28 @@ func analyzeDeadZones(repo *git.Repository, since time.Time, pathFilters []strin
 		} else {
 			activeFiles++
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing current files: %v", err)
 	}
-	
+
 	// Sort dead zones by age (oldest first)
 	deadZoneFiles = sortDeadZonesByAge(deadZoneFiles)
-	
+
 	deadZoneCount := len(deadZoneFiles)
 	var deadZonePercent float64
 	if totalFiles > 0 {
 		deadZonePercent = float64(deadZoneCount) / float64(totalFiles) * 100
 	}
-	
+
 	timeWindow := "all time"
 	if !since.IsZero() {
 		timeWindow = fmt.Sprintf("since %s", since.Format("2006-01-02"))
 	}
-	
+
 	return &DeadZoneAnalysis{
 		TimeWindow:      timeWindow,
 		TotalFiles:      totalFiles,
@@ -444,28 +444,28 @@ func printDeadZoneStats(analysis *DeadZoneAnalysis, limit int) {
 	fmt.Println()
 	fmt.Println("Context:", deadZonesBenchmarkContext)
 	fmt.Println()
-	
+
 	if len(analysis.DeadZoneFiles) == 0 {
 		fmt.Println("✅ No dead zones found! All files are actively maintained.")
 		return
 	}
-	
+
 	fmt.Printf("⚠️  Dead Zone Files (showing top %d):\n", limit)
 	fmt.Printf("File                                  Age     Size      Risk Level    Recommendation\n")
 	fmt.Printf("------------------------------------- ------- --------- ------------- -----------------------\n")
-	
+
 	for i, file := range analysis.DeadZoneFiles {
 		if i >= limit {
 			break
 		}
-		
+
 		ageStr := fmt.Sprintf("%d months", file.AgeInMonths)
 		sizeStr := formatFileSize(file.Size)
-		
+
 		fmt.Printf("%-37s %7s %9s %-13s %s\n",
 			truncateFilePath(file.Path, 37), ageStr, sizeStr, file.RiskLevel, file.Recommendation)
 	}
-	
+
 	if len(analysis.DeadZoneFiles) > limit {
 		fmt.Printf("\n... and %d more dead zone files\n", len(analysis.DeadZoneFiles)-limit)
 	}
@@ -496,10 +496,10 @@ Risk Levels:
 Based on Clean Code principles - untouched code becomes a liability over time.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse flags
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "dead-zones.last")
 		pathFilters, source := getConfigPaths(cmd, "dead-zones.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "dead-zones", lastArg, pathFilters, source)
 

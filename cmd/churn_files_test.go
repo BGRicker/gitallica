@@ -79,11 +79,11 @@ func TestCalculateFileChurn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			churn, status := calculateFileChurn(tt.additions, tt.deletions, tt.totalLOC)
-			
+
 			if churn != tt.expectedChurn {
 				t.Errorf("calculateFileChurn() churn = %v, want %v", churn, tt.expectedChurn)
 			}
-			
+
 			if status != tt.expectedStatus {
 				t.Errorf("calculateFileChurn() status = %v, want %v", status, tt.expectedStatus)
 			}
@@ -228,11 +228,11 @@ func TestChurnCalculationEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			churn, status := calculateFileChurn(tt.additions, tt.deletions, tt.totalLOC)
-			
+
 			if churn != tt.expectedChurn {
 				t.Errorf("calculateFileChurn() churn = %v, want %v", churn, tt.expectedChurn)
 			}
-			
+
 			if status != tt.expectedStatus {
 				t.Errorf("calculateFileChurn() status = %v, want %v", status, tt.expectedStatus)
 			}
@@ -247,8 +247,8 @@ func TestDirectoryAggregationEdgeCases(t *testing.T) {
 		expected []DirectoryChurnStats
 	}{
 		{
-			name: "empty file list",
-			files: []FileChurnStats{},
+			name:     "empty file list",
+			files:    []FileChurnStats{},
 			expected: []DirectoryChurnStats{},
 		},
 		{
@@ -289,18 +289,18 @@ func TestDirectoryAggregationEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := aggregateDirectoryChurn(tt.files)
-			
+
 			if len(result) != len(tt.expected) {
 				t.Errorf("Expected %d directories, got %d", len(tt.expected), len(result))
 				return
 			}
-			
+
 			for i, expected := range tt.expected {
 				if i >= len(result) {
 					t.Errorf("Missing directory at index %d", i)
 					continue
 				}
-				
+
 				actual := result[i]
 				if actual.Path != expected.Path {
 					t.Errorf("Directory %d: expected path %s, got %s", i, expected.Path, actual.Path)
@@ -318,7 +318,7 @@ func TestDirectoryAggregationEdgeCases(t *testing.T) {
 					t.Errorf("Directory %d: expected file count %d, got %d", i, expected.FileCount, actual.FileCount)
 				}
 				// Allow small floating point differences
-				if abs(actual.ChurnPercent - expected.ChurnPercent) > 0.1 {
+				if abs(actual.ChurnPercent-expected.ChurnPercent) > 0.1 {
 					t.Errorf("Directory %d: expected churn %f, got %f", i, expected.ChurnPercent, actual.ChurnPercent)
 				}
 			}

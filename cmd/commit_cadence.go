@@ -15,11 +15,11 @@ import (
 const (
 	// Trend detection thresholds
 	stableTrendThreshold = 0.1 // Slope within ±0.1 is considered stable
-	
+
 	// Spike/dip detection multipliers
 	spikeThresholdMultiplier = 2.0 // 2x average is a spike
 	dipThresholdMultiplier   = 0.3 // <30% of average is a dip
-	
+
 	// Sustainability thresholds
 	healthyAvgCommitsLow    = 5.0  // Minimum for healthy pace
 	healthyAvgCommitsHigh   = 25.0 // Maximum for healthy pace
@@ -48,7 +48,6 @@ type CommitCadenceStats struct {
 	TimePeriods             []TimePeriod
 }
 
-
 var commitCadenceCmd = &cobra.Command{
 	Use:   "commit-cadence",
 	Short: "Analyze commit cadence trends to identify pace and sustainability patterns",
@@ -76,9 +75,9 @@ The analysis groups commits by time periods and identifies:
 		}
 
 		pathFilters, source := getConfigPaths(cmd, "commit-cadence.paths")
-		lastArg, _ := cmd.Flags().GetString("last")
+		lastArg := getConfigLast(cmd, "commit-cadence.last")
 		periodArg, _ := cmd.Flags().GetString("period")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "commit-cadence", lastArg, pathFilters, source)
 
@@ -109,7 +108,7 @@ func analyzeCommitCadence(repo *git.Repository, pathFilters []string, lastArg st
 		}
 		since = &sinceTime
 	}
-	
+
 	// Get commits within time window
 	commitIter, err := repo.Log(&git.LogOptions{
 		Since: since,
@@ -118,20 +117,20 @@ func analyzeCommitCadence(repo *git.Repository, pathFilters []string, lastArg st
 		return nil, fmt.Errorf("could not get commit log: %v", err)
 	}
 	defer commitIter.Close()
-	
+
 	var commits []CommitInfo
-	
+
 	err = commitIter.ForEach(func(commit *object.Commit) error {
 		// Skip commits without author information
 		if commit.Author.Email == "" {
 			return nil
 		}
-		
+
 		// Skip merge commits for cleaner analysis
 		if commit.NumParents() > 1 {
 			return nil
 		}
-		
+
 		// If path filtering is specified, check if commit affects the path
 		if len(pathFilters) > 0 {
 			affectsPath, err := commitAffectsPath(commit, pathFilters)
@@ -142,7 +141,7 @@ func analyzeCommitCadence(repo *git.Repository, pathFilters []string, lastArg st
 				return nil
 			}
 		}
-		
+
 		commits = append(commits, CommitInfo{
 			Hash:    commit.Hash.String()[:8],
 			Time:    commit.Author.When,
@@ -150,20 +149,20 @@ func analyzeCommitCadence(repo *git.Repository, pathFilters []string, lastArg st
 			Message: commit.Message,
 			Files:   []string{}, // Not needed for cadence analysis
 		})
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
 	}
-	
+
 	// Group commits by time periods
 	timePeriods := groupCommitsByTimePeriod(commits, periodArg)
-	
+
 	// Calculate comprehensive statistics
 	stats := calculateCommitCadenceStats(timePeriods)
-	
+
 	return stats, nil
 }
 
@@ -171,7 +170,7 @@ func analyzeCommitCadence(repo *git.Repository, pathFilters []string, lastArg st
 func calculateISOWeekPeriod(t time.Time) (start, end time.Time, key string) {
 	utcTime := t.UTC()
 	year, week := utcTime.ISOWeek()
-	
+
 	// Calculate the Monday of this ISO week
 	jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
 	jan1Weekday := jan1.Weekday()
@@ -182,11 +181,11 @@ func calculateISOWeekPeriod(t time.Time) (start, end time.Time, key string) {
 	if daysToFirstMonday > 0 {
 		daysToFirstMonday -= 7
 	}
-	
+
 	start = jan1.AddDate(0, 0, daysToFirstMonday+(week-1)*7)
 	end = start.Add(7*24*time.Hour - time.Nanosecond)
 	key = start.Format("2006-W02")
-	
+
 	return start, end, key
 }
 
@@ -195,21 +194,21 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 	if len(commits) == 0 {
 		return []TimePeriod{}
 	}
-	
+
 	// Sort commits by time
 	sort.Slice(commits, func(i, j int) bool {
 		return commits[i].Time.Before(commits[j].Time)
 	})
-	
+
 	// First pass: collect commit counts by period
 	periodMap := make(map[string]int)
 	periodStarts := make(map[string]time.Time)
 	periodEnds := make(map[string]time.Time)
-	
+
 	for _, commit := range commits {
 		var periodKey string
 		var periodStart, periodEnd time.Time
-		
+
 		switch period {
 		case "day":
 			year, month, day := commit.Time.Date()
@@ -225,34 +224,34 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 			periodEnd = periodStart.AddDate(0, 1, 0).Add(-time.Nanosecond)
 			periodKey = periodStart.Format("2006-01")
 		default:
-			// Default to week - use helper function for ISO week calculation  
+			// Default to week - use helper function for ISO week calculation
 			periodStart, periodEnd, periodKey = calculateISOWeekPeriod(commit.Time)
 		}
-		
+
 		periodMap[periodKey]++
 		if _, exists := periodStarts[periodKey]; !exists {
 			periodStarts[periodKey] = periodStart
 			periodEnds[periodKey] = periodEnd
 		}
 	}
-	
+
 	// Second pass: create continuous time series with zero-fill for missing periods
 	if len(periodStarts) == 0 {
 		return []TimePeriod{}
 	}
-	
+
 	// Find the time range from earliest to latest commit
 	earliestTime := commits[0].Time
 	latestTime := commits[len(commits)-1].Time
-	
+
 	// Generate complete time series from earliest to latest period
 	var periods []TimePeriod
 	current := earliestTime
-	
+
 	for current.Before(latestTime) || current.Equal(latestTime) {
 		var periodKey string
 		var periodStart, periodEnd time.Time
-		
+
 		// Use same period calculation logic as in first pass
 		switch period {
 		case "day":
@@ -271,16 +270,16 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 			// Default to week
 			periodStart, periodEnd, periodKey = calculateISOWeekPeriod(current)
 		}
-		
+
 		// Get commit count for this period (zero if no commits)
 		commitCount := periodMap[periodKey]
-		
+
 		periods = append(periods, TimePeriod{
 			Start:       periodStart,
 			End:         periodEnd,
 			CommitCount: commitCount,
 		})
-		
+
 		// Move to next period
 		switch period {
 		case "day":
@@ -292,13 +291,13 @@ func groupCommitsByTimePeriod(commits []CommitInfo, period string) []TimePeriod 
 		default:
 			current = periodStart.Add(7 * 24 * time.Hour)
 		}
-		
+
 		// Safety check to prevent infinite loops
 		if len(periods) > 1000 {
 			break
 		}
 	}
-	
+
 	return periods
 }
 
@@ -308,13 +307,13 @@ func calculateCommitCadenceStats(periods []TimePeriod) *CommitCadenceStats {
 		TotalPeriods: len(periods),
 		TimePeriods:  periods,
 	}
-	
+
 	if len(periods) == 0 {
 		stats.TrendDirection = "Unknown"
 		stats.SustainabilityLevel = "Unknown"
 		return stats
 	}
-	
+
 	// Calculate basic statistics
 	totalCommits := 0
 	for _, period := range periods {
@@ -322,7 +321,7 @@ func calculateCommitCadenceStats(periods []TimePeriod) *CommitCadenceStats {
 	}
 	stats.TotalCommits = totalCommits
 	stats.AverageCommitsPerPeriod = float64(totalCommits) / float64(len(periods))
-	
+
 	// Calculate trend direction and strength
 	if len(periods) >= 2 {
 		slope := calculateTrendSlope(periods)
@@ -331,11 +330,11 @@ func calculateCommitCadenceStats(periods []TimePeriod) *CommitCadenceStats {
 		stats.TrendDirection = "Unknown"
 		stats.TrendStrength = 0.0
 	}
-	
+
 	// Detect spikes and dips
 	stats.Spikes = detectCommitSpikes(periods)
 	stats.Dips = detectCommitDips(periods)
-	
+
 	// Assess sustainability level
 	stats.SustainabilityLevel = classifySustainabilityLevel(
 		stats.AverageCommitsPerPeriod,
@@ -343,7 +342,7 @@ func calculateCommitCadenceStats(periods []TimePeriod) *CommitCadenceStats {
 		len(stats.Dips),
 		stats.TrendDirection,
 	)
-	
+
 	return stats
 }
 
@@ -353,34 +352,34 @@ func calculateTrendSlope(periods []TimePeriod) float64 {
 	if n < 2 {
 		return 0
 	}
-	
+
 	var sumX, sumY, sumXY, sumX2 float64
-	
+
 	for i, period := range periods {
 		x := float64(i)
 		y := float64(period.CommitCount)
-		
+
 		sumX += x
 		sumY += y
 		sumXY += x * y
 		sumX2 += x * x
 	}
-	
+
 	// Linear regression: slope = (n*ΣXY - ΣX*ΣY) / (n*ΣX² - (ΣX)²)
 	numerator := n*sumXY - sumX*sumY
 	denominator := n*sumX2 - sumX*sumX
-	
+
 	if denominator == 0 {
 		return 0
 	}
-	
+
 	return numerator / denominator
 }
 
 // classifyTrendDirection determines trend direction and strength from slope
 func classifyTrendDirection(slope float64) (string, float64) {
 	absSlope := math.Abs(slope)
-	
+
 	if absSlope <= stableTrendThreshold {
 		return "Stable", absSlope
 	} else if slope > 0 {
@@ -396,14 +395,14 @@ func detectCommitSpikes(periods []TimePeriod) []TimePeriod {
 	if len(periods) < 5 {
 		return []TimePeriod{}
 	}
-	
+
 	// Use median for more robust baseline (less affected by extremes)
 	counts := make([]int, len(periods))
 	for i, period := range periods {
 		counts[i] = period.CommitCount
 	}
 	sort.Ints(counts)
-	
+
 	var baseline float64
 	mid := len(counts) / 2
 	if len(counts)%2 == 0 {
@@ -411,19 +410,19 @@ func detectCommitSpikes(periods []TimePeriod) []TimePeriod {
 	} else {
 		baseline = float64(counts[mid])
 	}
-	
+
 	// Guard against zero baseline
 	if baseline == 0 {
 		return []TimePeriod{}
 	}
-	
+
 	var spikes []TimePeriod
 	spikeThreshold := baseline * spikeThresholdMultiplier
-	
+
 	for _, period := range periods {
 		if float64(period.CommitCount) > spikeThreshold {
 			spike := period
-			
+
 			// Classify spike severity
 			ratio := float64(period.CommitCount) / baseline
 			if ratio >= 2.5 {
@@ -433,11 +432,11 @@ func detectCommitSpikes(periods []TimePeriod) []TimePeriod {
 			} else {
 				spike.Severity = "Low"
 			}
-			
+
 			spikes = append(spikes, spike)
 		}
 	}
-	
+
 	return spikes
 }
 
@@ -447,14 +446,14 @@ func detectCommitDips(periods []TimePeriod) []TimePeriod {
 	if len(periods) < 5 {
 		return []TimePeriod{}
 	}
-	
+
 	// Use median for more robust baseline (less affected by extremes)
 	counts := make([]int, len(periods))
 	for i, period := range periods {
 		counts[i] = period.CommitCount
 	}
 	sort.Ints(counts)
-	
+
 	var baseline float64
 	mid := len(counts) / 2
 	if len(counts)%2 == 0 {
@@ -462,19 +461,19 @@ func detectCommitDips(periods []TimePeriod) []TimePeriod {
 	} else {
 		baseline = float64(counts[mid])
 	}
-	
+
 	// Guard against zero baseline
 	if baseline == 0 {
 		return []TimePeriod{}
 	}
-	
+
 	var dips []TimePeriod
 	dipThreshold := baseline * dipThresholdMultiplier
-	
+
 	for _, period := range periods {
 		if float64(period.CommitCount) < dipThreshold {
 			dip := period
-			
+
 			// Classify dip severity
 			ratio := float64(period.CommitCount) / baseline
 			if ratio <= 0.15 {
@@ -484,11 +483,11 @@ func detectCommitDips(periods []TimePeriod) []TimePeriod {
 			} else {
 				dip.Severity = "Low"
 			}
-			
+
 			dips = append(dips, dip)
 		}
 	}
-	
+
 	return dips
 }
 
@@ -501,7 +500,7 @@ func classifySustainabilityLevel(avgCommits float64, spikeCount, dipCount int, t
 	if avgCommits > healthyAvgCommitsHigh && spikeCount >= warningSpikesThreshold {
 		return "Critical"
 	}
-	
+
 	// Warning conditions
 	if spikeCount >= warningSpikesThreshold {
 		return "Warning"
@@ -509,7 +508,7 @@ func classifySustainabilityLevel(avgCommits float64, spikeCount, dipCount int, t
 	if avgCommits > healthyAvgCommitsHigh && trendDirection == "Increasing" {
 		return "Warning"
 	}
-	
+
 	// Caution conditions
 	if dipCount >= 2 {
 		return "Caution"
@@ -523,14 +522,14 @@ func classifySustainabilityLevel(avgCommits float64, spikeCount, dipCount int, t
 	if trendDirection == "Decreasing" && dipCount > 0 {
 		return "Caution"
 	}
-	
+
 	// Healthy conditions
 	if avgCommits >= healthyAvgCommitsLow && avgCommits <= healthyAvgCommitsHigh {
 		if spikeCount <= 1 && dipCount <= 1 && trendDirection != "Decreasing" {
 			return "Healthy"
 		}
 	}
-	
+
 	// Default to caution if unclear
 	return "Caution"
 }
@@ -541,15 +540,15 @@ func printCommitCadenceStats(stats *CommitCadenceStats, period string) {
 	fmt.Printf("Time period grouping: %s\n", period)
 	fmt.Printf("Total commits analyzed: %d\n", stats.TotalCommits)
 	fmt.Printf("Total periods: %d\n", stats.TotalPeriods)
-	
+
 	if stats.TotalPeriods == 0 {
 		fmt.Printf("No commits found in the specified criteria.\n")
 		return
 	}
-	
+
 	fmt.Printf("Average commits per %s: %.1f\n", period, stats.AverageCommitsPerPeriod)
 	fmt.Printf("\n")
-	
+
 	// Trend analysis
 	fmt.Printf("Trend Analysis:\n")
 	fmt.Printf("  Direction: %s", stats.TrendDirection)
@@ -557,42 +556,42 @@ func printCommitCadenceStats(stats *CommitCadenceStats, period string) {
 		fmt.Printf(" (strength: %.2f)", stats.TrendStrength)
 	}
 	fmt.Printf("\n")
-	
+
 	// Sustainability assessment
 	fmt.Printf("  Sustainability: %s\n", stats.SustainabilityLevel)
 	fmt.Printf("\n")
-	
+
 	// Context and research
 	fmt.Printf("Context: Track trends, not absolutes - spikes/dips may reveal crunch, burnout, or stagnation (Kent Beck).\n\n")
-	
+
 	// Spikes analysis
 	if len(stats.Spikes) > 0 {
 		fmt.Printf("Commit Spikes Detected (%d):\n", len(stats.Spikes))
 		for i, spike := range stats.Spikes {
-			fmt.Printf("  %d. %s - %s (%d commits, %s severity)\n", 
-				i+1, 
-				spike.Start.Format("2006-01-02"), 
+			fmt.Printf("  %d. %s - %s (%d commits, %s severity)\n",
+				i+1,
+				spike.Start.Format("2006-01-02"),
 				spike.End.Format("2006-01-02"),
 				spike.CommitCount,
 				spike.Severity)
 		}
 		fmt.Printf("\n")
 	}
-	
+
 	// Dips analysis
 	if len(stats.Dips) > 0 {
 		fmt.Printf("Commit Dips Detected (%d):\n", len(stats.Dips))
 		for i, dip := range stats.Dips {
-			fmt.Printf("  %d. %s - %s (%d commits, %s severity)\n", 
-				i+1, 
-				dip.Start.Format("2006-01-02"), 
+			fmt.Printf("  %d. %s - %s (%d commits, %s severity)\n",
+				i+1,
+				dip.Start.Format("2006-01-02"),
 				dip.End.Format("2006-01-02"),
 				dip.CommitCount,
 				dip.Severity)
 		}
 		fmt.Printf("\n")
 	}
-	
+
 	// Recent periods (last 5)
 	if len(stats.TimePeriods) > 0 {
 		recentCount := 5
@@ -600,17 +599,17 @@ func printCommitCadenceStats(stats *CommitCadenceStats, period string) {
 			recentCount = len(stats.TimePeriods)
 		}
 		fmt.Printf("Recent Periods (last %d):\n", recentCount)
-		
+
 		for i := len(stats.TimePeriods) - recentCount; i < len(stats.TimePeriods); i++ {
 			period := stats.TimePeriods[i]
-			fmt.Printf("  %s - %s: %d commits\n", 
-				period.Start.Format("2006-01-02"), 
+			fmt.Printf("  %s - %s: %d commits\n",
+				period.Start.Format("2006-01-02"),
 				period.End.Format("2006-01-02"),
 				period.CommitCount)
 		}
 		fmt.Printf("\n")
 	}
-	
+
 	// Recommendations
 	fmt.Printf("Recommendations:\n")
 	switch stats.SustainabilityLevel {
@@ -637,14 +636,14 @@ func printCommitCadenceStats(stats *CommitCadenceStats, period string) {
 		fmt.Printf("  • Insufficient data for sustainability assessment\n")
 		fmt.Printf("  • Consider analyzing a longer time period\n")
 	}
-	
+
 	// Overall pace assessment
 	if stats.AverageCommitsPerPeriod > 0 {
 		if stats.AverageCommitsPerPeriod < healthyAvgCommitsLow {
-			fmt.Printf("  • Low average pace (%.1f commits/%s) - consider if adequate\n", 
+			fmt.Printf("  • Low average pace (%.1f commits/%s) - consider if adequate\n",
 				stats.AverageCommitsPerPeriod, period)
 		} else if stats.AverageCommitsPerPeriod > healthyAvgCommitsHigh {
-			fmt.Printf("  • High average pace (%.1f commits/%s) - ensure sustainability\n", 
+			fmt.Printf("  • High average pace (%.1f commits/%s) - ensure sustainability\n",
 				stats.AverageCommitsPerPeriod, period)
 		}
 	}
