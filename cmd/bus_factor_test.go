@@ -27,11 +27,11 @@ import (
 
 func TestCalculateBusFactor(t *testing.T) {
 	tests := []struct {
-		name               string
-		authorLines         map[string]int
-		expectedBusFactor   int
-		expectedRiskLevel   string
-		description         string
+		name              string
+		authorLines       map[string]int
+		expectedBusFactor int
+		expectedRiskLevel string
+		description       string
 	}{
 		{
 			name: "single author - high risk",
@@ -97,7 +97,7 @@ func TestCalculateBusFactor(t *testing.T) {
 			if busFactor != tt.expectedBusFactor {
 				t.Errorf("Expected bus factor %d, got %d. %s", tt.expectedBusFactor, busFactor, tt.description)
 			}
-			
+
 			riskLevel := classifyBusFactorRisk(busFactor, len(tt.authorLines))
 			if riskLevel != tt.expectedRiskLevel {
 				t.Errorf("Expected risk level %s, got %s. %s", tt.expectedRiskLevel, riskLevel, tt.description)
@@ -108,46 +108,46 @@ func TestCalculateBusFactor(t *testing.T) {
 
 func TestClassifyBusFactorRisk(t *testing.T) {
 	tests := []struct {
-		name            string
-		busFactor       int
+		name              string
+		busFactor         int
 		totalContributors int
-		expectedRisk    string
-		description     string
+		expectedRisk      string
+		description       string
 	}{
 		{
-			name:            "single person team",
-			busFactor:       1,
+			name:              "single person team",
+			busFactor:         1,
 			totalContributors: 1,
-			expectedRisk:    "Critical",
-			description:     "Single person creates critical risk",
+			expectedRisk:      "Critical",
+			description:       "Single person creates critical risk",
 		},
 		{
-			name:            "two person team, bus factor 1",
-			busFactor:       1,
+			name:              "two person team, bus factor 1",
+			busFactor:         1,
 			totalContributors: 2,
-			expectedRisk:    "Critical",
-			description:     "One person dominating in small team is critical",
+			expectedRisk:      "Critical",
+			description:       "One person dominating in small team is critical",
 		},
 		{
-			name:            "small team with good distribution",
-			busFactor:       3,
+			name:              "small team with good distribution",
+			busFactor:         3,
 			totalContributors: 4,
-			expectedRisk:    "Medium",
-			description:     "Good distribution in small team",
+			expectedRisk:      "Medium",
+			description:       "Good distribution in small team",
 		},
 		{
-			name:            "large team with good distribution",
-			busFactor:       6,
+			name:              "large team with good distribution",
+			busFactor:         6,
 			totalContributors: 10,
-			expectedRisk:    "Healthy",
-			description:     "Large team with good knowledge distribution",
+			expectedRisk:      "Healthy",
+			description:       "Large team with good knowledge distribution",
 		},
 		{
-			name:            "medium team with concentration",
-			busFactor:       2,
+			name:              "medium team with concentration",
+			busFactor:         2,
 			totalContributors: 8,
-			expectedRisk:    "High",
-			description:     "Knowledge concentration in medium-sized team",
+			expectedRisk:      "High",
+			description:       "Knowledge concentration in medium-sized team",
 		},
 	}
 
@@ -163,19 +163,19 @@ func TestClassifyBusFactorRisk(t *testing.T) {
 
 func TestCalculateAuthorContributionPercentage(t *testing.T) {
 	authorLines := map[string]int{
-		"alice@example.com": 60,
-		"bob@example.com":   30,
+		"alice@example.com":   60,
+		"bob@example.com":     30,
 		"charlie@example.com": 10,
 	}
-	
+
 	percentages := calculateAuthorContributionPercentage(authorLines)
-	
+
 	expectedPercentages := map[string]float64{
-		"alice@example.com": 60.0,
-		"bob@example.com":   30.0,
+		"alice@example.com":   60.0,
+		"bob@example.com":     30.0,
 		"charlie@example.com": 10.0,
 	}
-	
+
 	for author, expected := range expectedPercentages {
 		if actual, exists := percentages[author]; !exists {
 			t.Errorf("Expected percentage for %s not found", author)
@@ -197,7 +197,7 @@ func TestSortDirectoriesByBusFactorRisk(t *testing.T) {
 
 	// Should be sorted by risk (Critical -> High -> Medium -> Healthy)
 	expectedOrder := []string{"critical/", "high/", "medium/", "healthy/"}
-	
+
 	for i, expected := range expectedOrder {
 		if sorted[i].Path != expected {
 			t.Errorf("Expected position %d to be %s, got %s", i, expected, sorted[i].Path)
@@ -212,14 +212,14 @@ func TestBusFactorEdgeCases(t *testing.T) {
 			t.Errorf("Expected bus factor 0 for empty lines, got %d", busFactor)
 		}
 	})
-	
+
 	t.Run("zero total contributors", func(t *testing.T) {
 		risk := classifyBusFactorRisk(0, 0)
 		if risk != "Unknown" {
 			t.Errorf("Expected 'Unknown' risk for zero contributors, got %s", risk)
 		}
 	})
-	
+
 	t.Run("contribution percentage with zero lines", func(t *testing.T) {
 		percentages := calculateAuthorContributionPercentage(map[string]int{})
 		if len(percentages) != 0 {
@@ -233,7 +233,7 @@ func TestBusFactorThresholds(t *testing.T) {
 	if criticalBusFactorThreshold != 1 {
 		t.Errorf("Expected critical bus factor threshold to be 1, got %d", criticalBusFactorThreshold)
 	}
-	
+
 	if lowBusFactorThreshold != 2 {
 		t.Errorf("Expected low bus factor threshold to be 2, got %d", lowBusFactorThreshold)
 	}
@@ -241,58 +241,58 @@ func TestBusFactorThresholds(t *testing.T) {
 
 func TestAuthorNameNormalization(t *testing.T) {
 	tests := []struct {
-		name     string
-		nameInput    string
-		emailInput   string
-		expected string
+		name       string
+		nameInput  string
+		emailInput string
+		expected   string
 	}{
 		{
-			name:     "valid email and name",
-			nameInput:    "Alice Smith",
-			emailInput:   "alice@company.com",
-			expected: "alice@company.com",
+			name:       "valid email and name",
+			nameInput:  "Alice Smith",
+			emailInput: "alice@company.com",
+			expected:   "alice@company.com",
 		},
 		{
-			name:     "generic email with name",
-			nameInput:    "Alice Smith",
-			emailInput:   "user@localhost",
-			expected: "alice smith",
+			name:       "generic email with name",
+			nameInput:  "Alice Smith",
+			emailInput: "user@localhost",
+			expected:   "alice smith",
 		},
 		{
-			name:     "example.com email with name",
-			nameInput:    "Alice Smith",
-			emailInput:   "alice@example.com",
-			expected: "alice smith",
+			name:       "example.com email with name",
+			nameInput:  "Alice Smith",
+			emailInput: "alice@example.com",
+			expected:   "alice smith",
 		},
 		{
-			name:     "noreply email with name",
-			nameInput:    "Alice Smith",
-			emailInput:   "noreply@company.com",
-			expected: "alice smith",
+			name:       "noreply email with name",
+			nameInput:  "Alice Smith",
+			emailInput: "noreply@company.com",
+			expected:   "alice smith",
 		},
 		{
-			name:     "valid email no name",
-			nameInput:    "",
-			emailInput:   "alice@company.com",
-			expected: "alice@company.com",
+			name:       "valid email no name",
+			nameInput:  "",
+			emailInput: "alice@company.com",
+			expected:   "alice@company.com",
 		},
 		{
-			name:     "name only no email",
-			nameInput:    "Alice Smith",
-			emailInput:   "",
-			expected: "alice smith",
+			name:       "name only no email",
+			nameInput:  "Alice Smith",
+			emailInput: "",
+			expected:   "alice smith",
 		},
 		{
-			name:     "mixed case email",
-			nameInput:    "Alice Smith",
-			emailInput:   "Alice.Smith@COMPANY.COM",
-			expected: "alice.smith@company.com",
+			name:       "mixed case email",
+			nameInput:  "Alice Smith",
+			emailInput: "Alice.Smith@COMPANY.COM",
+			expected:   "alice.smith@company.com",
 		},
 		{
-			name:     "empty inputs",
-			nameInput:    "",
-			emailInput:   "",
-			expected: "unknown",
+			name:       "empty inputs",
+			nameInput:  "",
+			emailInput: "",
+			expected:   "unknown",
 		},
 	}
 

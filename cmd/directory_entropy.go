@@ -16,20 +16,20 @@ import (
 
 const (
 	directoryEntropyContext = "High entropy signals weak modularity and eroded boundaries. Clean directories have focused purpose."
-	
+
 	// Adaptive threshold multipliers for context-aware classification
-	criticalThresholdMultiplier = 1.8  // 80% above average
-	highThresholdMultiplier     = 1.4  // 40% above average  
-	mediumThresholdMultiplier   = 0.9  // 10% below average
-	
+	criticalThresholdMultiplier = 1.8 // 80% above average
+	highThresholdMultiplier     = 1.4 // 40% above average
+	mediumThresholdMultiplier   = 0.9 // 10% below average
+
 	// Minimum thresholds to ensure meaningful classification
 	minCriticalThreshold = 1.5
 	minHighThreshold     = 1.0
 	minMediumThreshold   = 0.5
-	
+
 	// Root directory offsets (root directories naturally have mixed file types)
-	rootHighOffset   = 0.5  // Offset for root high threshold
-	rootMediumOffset = 0.3  // Offset for root medium threshold
+	rootHighOffset   = 0.5 // Offset for root high threshold
+	rootMediumOffset = 0.3 // Offset for root medium threshold
 )
 
 // DirectoryEntropyStats represents entropy statistics for a directory
@@ -44,10 +44,10 @@ type DirectoryEntropyStats struct {
 
 // DirectoryEntropyAnalysis represents the overall analysis
 type DirectoryEntropyAnalysis struct {
-	TimeWindow     string
-	ProjectType    ProjectType
-	TotalDirs      int
-	AvgEntropy     float64
+	TimeWindow      string
+	ProjectType     ProjectType
+	TotalDirs       int
+	AvgEntropy      float64
 	HighEntropyDirs []DirectoryEntropyStats
 	LowEntropyDirs  []DirectoryEntropyStats
 }
@@ -58,11 +58,11 @@ func calculateEntropy(fileTypes map[string]int) float64 {
 	for _, count := range fileTypes {
 		totalFiles += count
 	}
-	
+
 	if totalFiles == 0 {
 		return 0.0
 	}
-	
+
 	entropy := 0.0
 	for _, count := range fileTypes {
 		if count > 0 {
@@ -70,16 +70,16 @@ func calculateEntropy(fileTypes map[string]int) float64 {
 			entropy -= probability * math.Log2(probability)
 		}
 	}
-	
+
 	return entropy
 }
 
 // ProjectType represents different types of software projects
 type ProjectType struct {
-	Name        string
+	Name         string
 	RootPatterns []string
 	ExpectedDirs map[string][]string
-	Description string
+	Description  string
 }
 
 // Detect project type based on file patterns and structure
@@ -87,44 +87,44 @@ func detectProjectType(tree *object.Tree) ProjectType {
 	// Use maps for efficient lookups and to avoid duplicates
 	fileExtensions := make(map[string]bool)
 	rootFiles := make(map[string]bool)
-	
+
 	tree.Files().ForEach(func(f *object.File) error {
 		// Check if this is a root file (no path separators)
 		if !strings.Contains(f.Name, "/") {
 			fileName := strings.ToLower(f.Name)
 			rootFiles[fileName] = true
 		}
-		
+
 		// Collect file extensions
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		if ext != "" {
 			fileExtensions[ext] = true
 		}
-		
+
 		return nil
 	})
-	
+
 	// Detect Go project - check for go.mod file specifically in root
 	if fileExtensions[".go"] && rootFiles["go.mod"] {
 		return ProjectType{
-			Name: "Go CLI/Application",
+			Name:         "Go CLI/Application",
 			RootPatterns: []string{".go", ".mod", ".sum", ".md", ".txt", ".yml", ".yaml"},
 			ExpectedDirs: map[string][]string{
-				"cmd":     {".go"},
+				"cmd":      {".go"},
 				"internal": {".go"},
-				"pkg":     {".go"},
-				"docs":    {".md", ".rst"},
-				"scripts": {".sh", ".py", ".bat"},
-				"configs": {".yml", ".yaml", ".json", ".toml"},
+				"pkg":      {".go"},
+				"docs":     {".md", ".rst"},
+				"scripts":  {".sh", ".py", ".bat"},
+				"configs":  {".yml", ".yaml", ".json", ".toml"},
 			},
 			Description: "Go project with standard layout",
 		}
 	}
-	
+
 	// Detect Node.js project - check for package.json specifically in root
 	if fileExtensions[".js"] && rootFiles["package.json"] {
 		return ProjectType{
-			Name: "Node.js Application",
+			Name:         "Node.js Application",
 			RootPatterns: []string{".js", ".json", ".md", ".txt", ".yml", ".yaml"},
 			ExpectedDirs: map[string][]string{
 				"src":     {".js", ".ts", ".jsx", ".tsx"},
@@ -137,11 +137,11 @@ func detectProjectType(tree *object.Tree) ProjectType {
 			Description: "Node.js project with standard layout",
 		}
 	}
-	
+
 	// Detect Python project - check for common Python files in root
 	if fileExtensions[".py"] && (rootFiles["requirements.txt"] || rootFiles["pyproject.toml"] || rootFiles["setup.py"]) {
 		return ProjectType{
-			Name: "Python Application",
+			Name:         "Python Application",
 			RootPatterns: []string{".py", ".txt", ".md", ".yml", ".yaml", ".cfg", ".ini"},
 			ExpectedDirs: map[string][]string{
 				"src":     {".py"},
@@ -153,28 +153,28 @@ func detectProjectType(tree *object.Tree) ProjectType {
 			Description: "Python project with standard layout",
 		}
 	}
-	
+
 	// Detect Ruby/Rails project - check for Gemfile in root
 	// Note: rootFiles stores lowercase filenames, so "Gemfile" becomes "gemfile"
 	if fileExtensions[".rb"] && rootFiles["gemfile"] {
 		return ProjectType{
-			Name: "Ruby/Rails Application",
+			Name:         "Ruby/Rails Application",
 			RootPatterns: []string{".rb", ".gemspec", ".md", ".txt", ".yml", ".yaml"},
 			ExpectedDirs: map[string][]string{
-				"app":     {".rb", ".erb", ".haml"},
-				"lib":     {".rb"},
-				"spec":    {".rb"},
-				"test":    {".rb"},
-				"config":  {".rb", ".yml", ".yaml"},
-				"docs":    {".md", ".rst"},
+				"app":    {".rb", ".erb", ".haml"},
+				"lib":    {".rb"},
+				"spec":   {".rb"},
+				"test":   {".rb"},
+				"config": {".rb", ".yml", ".yaml"},
+				"docs":   {".md", ".rst"},
 			},
 			Description: "Ruby/Rails project with standard layout",
 		}
 	}
-	
+
 	// Default generic project
 	return ProjectType{
-		Name: "Generic Project",
+		Name:         "Generic Project",
 		RootPatterns: []string{".md", ".txt", ".yml", ".yaml", ".json"},
 		ExpectedDirs: map[string][]string{
 			"src":     {},
@@ -185,7 +185,6 @@ func detectProjectType(tree *object.Tree) ProjectType {
 		Description: "Generic project structure",
 	}
 }
-
 
 // isExpectedFileType checks if a file type is expected in a directory for the project type
 func isExpectedFileType(projectType ProjectType, dirPath string, fileExt string) bool {
@@ -198,7 +197,7 @@ func isExpectedFileType(projectType ProjectType, dirPath string, fileExt string)
 		}
 		return false
 	}
-	
+
 	// Check if directory has expected patterns
 	if expectedExts, exists := projectType.ExpectedDirs[dirPath]; exists {
 		if len(expectedExts) == 0 {
@@ -211,7 +210,7 @@ func isExpectedFileType(projectType ProjectType, dirPath string, fileExt string)
 		}
 		return false
 	}
-	
+
 	// Unknown directory - be permissive
 	return true
 }
@@ -219,13 +218,13 @@ func isExpectedFileType(projectType ProjectType, dirPath string, fileExt string)
 // classifyEntropyLevelWithContext provides context-aware entropy classification
 func classifyEntropyLevelWithContext(entropy float64, avgEntropy float64, dirPath string, projectType ProjectType) (string, string) {
 	isRoot := dirPath == "root" || dirPath == "."
-	
+
 	// Calculate adaptive thresholds based on repository average
 	// This provides context-aware classification relative to the project's overall entropy
-	criticalThreshold := avgEntropy * criticalThresholdMultiplier  // 80% above average
-	highThreshold := avgEntropy * highThresholdMultiplier          // 40% above average  
-	mediumThreshold := avgEntropy * mediumThresholdMultiplier       // 10% below average
-	
+	criticalThreshold := avgEntropy * criticalThresholdMultiplier // 80% above average
+	highThreshold := avgEntropy * highThresholdMultiplier         // 40% above average
+	mediumThreshold := avgEntropy * mediumThresholdMultiplier     // 10% below average
+
 	// Ensure minimum thresholds for meaningful classification
 	if criticalThreshold < minCriticalThreshold {
 		criticalThreshold = minCriticalThreshold
@@ -236,13 +235,13 @@ func classifyEntropyLevelWithContext(entropy float64, avgEntropy float64, dirPat
 	if mediumThreshold < minMediumThreshold {
 		mediumThreshold = minMediumThreshold
 	}
-	
+
 	if isRoot {
 		// Root directory has different rules based on project type
 		// Use higher thresholds since root directories naturally have mixed file types
-		rootHighThreshold := criticalThreshold + rootHighOffset   // Use critical threshold + offset for root high
-		rootMediumThreshold := highThreshold + rootMediumOffset   // Use high threshold + offset for root medium
-		
+		rootHighThreshold := criticalThreshold + rootHighOffset // Use critical threshold + offset for root high
+		rootMediumThreshold := highThreshold + rootMediumOffset // Use high threshold + offset for root medium
+
 		switch {
 		case entropy >= rootHighThreshold:
 			return "High", "Consider organizing: too many file types in root"
@@ -252,7 +251,7 @@ func classifyEntropyLevelWithContext(entropy float64, avgEntropy float64, dirPat
 			return "Low", "Good: well-organized root directory"
 		}
 	}
-	
+
 	// Subdirectories follow adaptive rules based on repository context
 	switch {
 	case entropy >= criticalThreshold:
@@ -272,42 +271,42 @@ func analyzeDirectoryEntropy(repo *git.Repository, since time.Time) (*DirectoryE
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
 	}
-	
+
 	headCommit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD commit: %v", err)
 	}
-	
+
 	tree, err := headCommit.Tree()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
-	
+
 	// Detect project type for context-aware analysis
 	projectType := detectProjectType(tree)
-	
+
 	// Collect directory statistics
 	dirStats := make(map[string]*DirectoryEntropyStats)
-	
+
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Skip binary files
 		isBinary, err := f.IsBinary()
 		if err != nil || isBinary {
 			return nil
 		}
-		
+
 		// Get directory path
 		dir := filepath.Dir(f.Name)
 		if dir == "." {
 			dir = "root"
 		}
-		
+
 		// Get file extension
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		if ext == "" {
 			ext = "no-extension"
 		}
-		
+
 		// Initialize directory stats if needed
 		if dirStats[dir] == nil {
 			dirStats[dir] = &DirectoryEntropyStats{
@@ -315,25 +314,25 @@ func analyzeDirectoryEntropy(repo *git.Repository, since time.Time) (*DirectoryE
 				FileTypes: make(map[string]int),
 			}
 		}
-		
+
 		// Update statistics
 		dirStats[dir].FileCount++
 		dirStats[dir].FileTypes[ext]++
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing files: %v", err)
 	}
-	
+
 	// Calculate entropy for each directory
 	var allEntropies []float64
 	for _, stats := range dirStats {
 		stats.Entropy = calculateEntropy(stats.FileTypes)
 		allEntropies = append(allEntropies, stats.Entropy)
 	}
-	
+
 	// Calculate average entropy
 	avgEntropy := 0.0
 	if len(allEntropies) > 0 {
@@ -343,24 +342,24 @@ func analyzeDirectoryEntropy(repo *git.Repository, since time.Time) (*DirectoryE
 		}
 		avgEntropy = sum / float64(len(allEntropies))
 	}
-	
+
 	// Classify entropy levels with context awareness
 	for _, stats := range dirStats {
 		level, recommendation := classifyEntropyLevelWithContext(stats.Entropy, avgEntropy, stats.Path, projectType)
 		stats.EntropyLevel = level
 		stats.Recommendation = recommendation
 	}
-	
+
 	// Sort directories by entropy
 	var dirs []DirectoryEntropyStats
 	for _, stats := range dirStats {
 		dirs = append(dirs, *stats)
 	}
-	
+
 	sort.Slice(dirs, func(i, j int) bool {
 		return dirs[i].Entropy > dirs[j].Entropy
 	})
-	
+
 	// Separate high and low entropy directories
 	var highEntropyDirs, lowEntropyDirs []DirectoryEntropyStats
 	for _, dir := range dirs {
@@ -371,17 +370,17 @@ func analyzeDirectoryEntropy(repo *git.Repository, since time.Time) (*DirectoryE
 		}
 		// Medium entropy directories are not shown in either category
 	}
-	
+
 	timeWindow := "all time"
 	if !since.IsZero() {
 		timeWindow = fmt.Sprintf("since %s", since.Format("2006-01-02"))
 	}
-	
+
 	return &DirectoryEntropyAnalysis{
-		TimeWindow:     timeWindow,
-		ProjectType:    projectType,
-		TotalDirs:      len(dirStats),
-		AvgEntropy:     avgEntropy,
+		TimeWindow:      timeWindow,
+		ProjectType:     projectType,
+		TotalDirs:       len(dirStats),
+		AvgEntropy:      avgEntropy,
 		HighEntropyDirs: highEntropyDirs,
 		LowEntropyDirs:  lowEntropyDirs,
 	}, nil
@@ -397,24 +396,24 @@ func printDirectoryEntropyStats(analysis *DirectoryEntropyAnalysis) {
 	fmt.Println()
 	fmt.Println("Context:", directoryEntropyContext)
 	fmt.Println()
-	
+
 	if len(analysis.HighEntropyDirs) > 0 {
 		fmt.Printf("⚠️  High Entropy Directories (Need Attention):\n")
 		fmt.Printf("Directory                    Files Types Entropy Level Recommendation\n")
 		fmt.Printf("---------------------------- ----- ----- ---------- ----------------\n")
 		for _, dir := range analysis.HighEntropyDirs {
-			fmt.Printf("%-28s %5d %5d %10.3f %s\n", 
+			fmt.Printf("%-28s %5d %5d %10.3f %s\n",
 				dir.Path, dir.FileCount, len(dir.FileTypes), dir.Entropy, dir.Recommendation)
 		}
 		fmt.Println()
 	}
-	
+
 	if len(analysis.LowEntropyDirs) > 0 {
 		fmt.Printf("✅ Low Entropy Directories (Well Organized):\n")
 		fmt.Printf("Directory                    Files Types Entropy Level Recommendation\n")
 		fmt.Printf("---------------------------- ----- ----- ---------- ----------------\n")
 		for _, dir := range analysis.LowEntropyDirs {
-			fmt.Printf("%-28s %5d %5d %10.3f %s\n", 
+			fmt.Printf("%-28s %5d %5d %10.3f %s\n",
 				dir.Path, dir.FileCount, len(dir.FileTypes), dir.Entropy, dir.Recommendation)
 		}
 		fmt.Println()
@@ -432,7 +431,7 @@ and unclear architectural boundaries.`,
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
-		
+
 		// Parse --last argument
 		var since time.Time
 		var err error
@@ -442,17 +441,17 @@ and unclear architectural boundaries.`,
 				log.Fatalf("Invalid --last value: %v", err)
 			}
 		}
-		
+
 		repo, err := git.PlainOpen(".")
 		if err != nil {
 			log.Fatalf("Failed to open git repo: %v", err)
 		}
-		
+
 		analysis, err := analyzeDirectoryEntropy(repo, since)
 		if err != nil {
 			log.Fatalf("Failed to analyze directory entropy: %v", err)
 		}
-		
+
 		// Apply limit if specified
 		if limitArg > 0 {
 			if len(analysis.HighEntropyDirs) > limitArg {
@@ -462,7 +461,7 @@ and unclear architectural boundaries.`,
 				analysis.LowEntropyDirs = analysis.LowEntropyDirs[:limitArg]
 			}
 		}
-		
+
 		printDirectoryEntropyStats(analysis)
 	},
 }

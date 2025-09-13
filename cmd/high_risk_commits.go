@@ -12,16 +12,16 @@ import (
 
 // Thresholds based on research: >400 lines or >10-12 files per commit is high risk
 const (
-	// Risk thresholds based on Nokia Bell Labs research showing correlation 
+	// Risk thresholds based on Nokia Bell Labs research showing correlation
 	// between change size and integration problems
 	moderateRiskLinesThreshold = 200  // Moderate complexity
 	highRiskLinesThreshold     = 500  // High complexity
 	criticalRiskLinesThreshold = 1000 // Critical complexity
-	
+
 	// File change thresholds
-	moderateRiskFilesThreshold = 5    // Moderate complexity
-	highRiskFilesThreshold     = 10   // High complexity
-	criticalRiskFilesThreshold = 20   // Critical complexity
+	moderateRiskFilesThreshold = 5  // Moderate complexity
+	highRiskFilesThreshold     = 10 // High complexity
+	criticalRiskFilesThreshold = 20 // Critical complexity
 )
 
 // HighRiskCommit represents a commit with risk analysis
@@ -38,15 +38,15 @@ type HighRiskCommit struct {
 
 // HighRiskCommitsStats contains analysis statistics
 type HighRiskCommitsStats struct {
-	TotalCommits   int
-	LowRisk        int
-	ModerateRisk   int
-	HighRisk       int
-	CriticalRisk   int
-	AverageLines   float64
-	AverageFiles   float64
-	LargestCommit  HighRiskCommit
-	RiskyCommits   []HighRiskCommit // Only moderate+ risk commits
+	TotalCommits  int
+	LowRisk       int
+	ModerateRisk  int
+	HighRisk      int
+	CriticalRisk  int
+	AverageLines  float64
+	AverageFiles  float64
+	LargestCommit HighRiskCommit
+	RiskyCommits  []HighRiskCommit // Only moderate+ risk commits
 }
 
 var highRiskCommitsCmd = &cobra.Command{
@@ -76,7 +76,7 @@ architectural consideration.`,
 		pathFilters, source := getConfigPaths(cmd, "high-risk-commits.paths")
 		lastArg, _ := cmd.Flags().GetString("last")
 		limitArg, _ := cmd.Flags().GetInt("limit")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "high-risk-commits", lastArg, pathFilters, source)
 
@@ -103,17 +103,17 @@ func classifyCommitRisk(linesChanged, filesChanged int) (string, string) {
 	if linesChanged >= criticalRiskLinesThreshold || filesChanged >= criticalRiskFilesThreshold {
 		return "Critical", "Very large changes increase integration risk"
 	}
-	
+
 	// High risk - large changes that need careful review
 	if linesChanged >= highRiskLinesThreshold || filesChanged >= highRiskFilesThreshold {
 		return "High", "Large changes increase review complexity"
 	}
-	
+
 	// Moderate risk - sizeable commits
 	if linesChanged >= moderateRiskLinesThreshold || filesChanged >= moderateRiskFilesThreshold {
 		return "Moderate", "Moderate complexity requires careful review"
 	}
-	
+
 	// Low risk - small, focused commits
 	return "Low", "Small changes are easier to review and debug"
 }
@@ -123,16 +123,16 @@ func calculateHighRiskCommitsStats(commits []HighRiskCommit) *HighRiskCommitsSta
 	stats := &HighRiskCommitsStats{
 		TotalCommits: len(commits),
 	}
-	
+
 	if len(commits) == 0 {
 		return stats
 	}
-	
+
 	totalLines := 0
 	totalFiles := 0
 	var largestCommit HighRiskCommit
 	var riskyCommits []HighRiskCommit
-	
+
 	for _, commit := range commits {
 		// Count risk categories
 		switch commit.Risk {
@@ -148,28 +148,28 @@ func calculateHighRiskCommitsStats(commits []HighRiskCommit) *HighRiskCommitsSta
 			stats.CriticalRisk++
 			riskyCommits = append(riskyCommits, commit)
 		}
-		
+
 		// Accumulate for averages
 		totalLines += commit.LinesChanged
 		totalFiles += commit.FilesChanged
-		
+
 		// Track largest commit
 		if commit.LinesChanged > largestCommit.LinesChanged {
 			largestCommit = commit
 		}
 	}
-	
+
 	// Calculate averages
 	stats.AverageLines = float64(totalLines) / float64(len(commits))
 	stats.AverageFiles = float64(totalFiles) / float64(len(commits))
 	stats.LargestCommit = largestCommit
-	
+
 	// Sort risky commits by lines changed (descending)
 	sort.Slice(riskyCommits, func(i, j int) bool {
 		return riskyCommits[i].LinesChanged > riskyCommits[j].LinesChanged
 	})
 	stats.RiskyCommits = riskyCommits
-	
+
 	return stats
 }
 
@@ -183,7 +183,7 @@ func analyzeHighRiskCommits(repo *git.Repository, pathFilters []string, lastArg 
 		}
 		since = &sinceTime
 	}
-	
+
 	// Get commits within time window
 	commitIter, err := repo.Log(&git.LogOptions{
 		Since: since,
@@ -192,34 +192,34 @@ func analyzeHighRiskCommits(repo *git.Repository, pathFilters []string, lastArg 
 		return nil, fmt.Errorf("could not get commit log: %v", err)
 	}
 	defer commitIter.Close()
-	
+
 	var commits []HighRiskCommit
-	
+
 	err = commitIter.ForEach(func(commit *object.Commit) error {
 		// Skip commits without author information
 		if commit.Author.Email == "" {
 			return nil
 		}
-		
+
 		// Skip merge commits for cleaner analysis
 		if commit.NumParents() > 1 {
 			return nil
 		}
-		
+
 		// Calculate lines and files changed
 		linesChanged, filesChanged, err := calculateCommitChanges(commit, pathFilters)
 		if err != nil {
 			return err
 		}
-		
+
 		// Skip commits with no changes in the specified path
 		if filesChanged == 0 {
 			return nil
 		}
-		
+
 		// Classify risk
 		risk, reason := classifyCommitRisk(linesChanged, filesChanged)
-		
+
 		commits = append(commits, HighRiskCommit{
 			Hash:         commit.Hash.String()[:8],
 			Author:       commit.Author.Email,
@@ -230,14 +230,14 @@ func analyzeHighRiskCommits(repo *git.Repository, pathFilters []string, lastArg 
 			Risk:         risk,
 			Reason:       reason,
 		})
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
 	}
-	
+
 	stats := calculateHighRiskCommitsStats(commits)
 	return stats, nil
 }
@@ -246,14 +246,14 @@ func analyzeHighRiskCommits(repo *git.Repository, pathFilters []string, lastArg 
 func calculateCommitChanges(commit *object.Commit, pathFilters []string) (int, int, error) {
 	var linesChanged int
 	var filesChanged int
-	
+
 	if commit.NumParents() == 0 {
 		// Initial commit - count all files as added
 		tree, err := commit.Tree()
 		if err != nil {
 			return 0, 0, err
 		}
-		
+
 		err = tree.Files().ForEach(func(file *object.File) error {
 			if matchesPathFilter(file.Name, pathFilters) {
 				filesChanged++
@@ -267,33 +267,33 @@ func calculateCommitChanges(commit *object.Commit, pathFilters []string) (int, i
 		})
 		return linesChanged, filesChanged, err
 	}
-	
+
 	// Regular commit - analyze diff with parent
 	parent, err := commit.Parent(0)
 	if err != nil {
 		return 0, 0, err
 	}
-	
+
 	parentTree, err := parent.Tree()
 	if err != nil {
 		return 0, 0, err
 	}
-	
+
 	currentTree, err := commit.Tree()
 	if err != nil {
 		return 0, 0, err
 	}
-	
+
 	// Compute single patch between trees for efficiency (avoids O(N) patch computations)
 	patch, err := parentTree.Patch(currentTree)
 	if err != nil {
 		return 0, 0, err
 	}
-	
+
 	// Get overall stats from the single patch
 	stats := patch.Stats()
 	fileSet := make(map[string]bool)
-	
+
 	// Filter stats to only include files matching the path filter
 	for _, fileStat := range stats {
 		if matchesPathFilter(fileStat.Name, pathFilters) {
@@ -301,7 +301,7 @@ func calculateCommitChanges(commit *object.Commit, pathFilters []string) (int, i
 			linesChanged += fileStat.Addition + fileStat.Deletion
 		}
 	}
-	
+
 	filesChanged = len(fileSet)
 	return linesChanged, filesChanged, nil
 }
@@ -311,10 +311,10 @@ func splitLines(content string) []string {
 	if content == "" {
 		return []string{}
 	}
-	
+
 	lines := []string{}
 	current := ""
-	
+
 	for _, char := range content {
 		if char == '\n' {
 			lines = append(lines, current)
@@ -323,12 +323,12 @@ func splitLines(content string) []string {
 			current += string(char)
 		}
 	}
-	
+
 	// Add the last line if it doesn't end with newline
 	if current != "" {
 		lines = append(lines, current)
 	}
-	
+
 	return lines
 }
 
@@ -336,53 +336,53 @@ func splitLines(content string) []string {
 func printHighRiskCommitsStats(stats *HighRiskCommitsStats, limitArg int) {
 	fmt.Printf("High-Risk Commits Analysis\n")
 	fmt.Printf("Total commits analyzed: %d\n", stats.TotalCommits)
-	
+
 	if stats.TotalCommits == 0 {
 		fmt.Printf("No commits found in the specified criteria.\n")
 		return
 	}
-	
+
 	fmt.Printf("Average lines changed per commit: %.1f\n", stats.AverageLines)
 	fmt.Printf("Average files touched per commit: %.1f\n", stats.AverageFiles)
 	fmt.Printf("\n")
-	
+
 	// Risk distribution
 	fmt.Printf("Risk Distribution:\n")
 	if stats.TotalCommits > 0 {
-		fmt.Printf("  Low: %d commits (%.1f%%)\n", 
+		fmt.Printf("  Low: %d commits (%.1f%%)\n",
 			stats.LowRisk, float64(stats.LowRisk)/float64(stats.TotalCommits)*100)
-		fmt.Printf("  Moderate: %d commits (%.1f%%)\n", 
+		fmt.Printf("  Moderate: %d commits (%.1f%%)\n",
 			stats.ModerateRisk, float64(stats.ModerateRisk)/float64(stats.TotalCommits)*100)
-		fmt.Printf("  High: %d commits (%.1f%%)\n", 
+		fmt.Printf("  High: %d commits (%.1f%%)\n",
 			stats.HighRisk, float64(stats.HighRisk)/float64(stats.TotalCommits)*100)
-		fmt.Printf("  Critical: %d commits (%.1f%%)\n", 
+		fmt.Printf("  Critical: %d commits (%.1f%%)\n",
 			stats.CriticalRisk, float64(stats.CriticalRisk)/float64(stats.TotalCommits)*100)
 	}
 	fmt.Printf("\n")
-	
+
 	// Context and research
 	fmt.Printf("Context: Large commits reduce review effectiveness and rollback safety (Kent Beck, Martin Fowler).\n\n")
-	
+
 	// Show largest commit
 	if stats.LargestCommit.Hash != "" {
 		fmt.Printf("Largest Commit:\n")
-		fmt.Printf("  %s by %s (%s)\n", 
+		fmt.Printf("  %s by %s (%s)\n",
 			stats.LargestCommit.Hash, stats.LargestCommit.Author, stats.LargestCommit.Date.Format("2006-01-02"))
-		fmt.Printf("  %d lines, %d files - %s\n", 
+		fmt.Printf("  %d lines, %d files - %s\n",
 			stats.LargestCommit.LinesChanged, stats.LargestCommit.FilesChanged, stats.LargestCommit.Risk)
 		fmt.Printf("  Message: %s\n", trimMessage(stats.LargestCommit.Message))
 		fmt.Printf("\n")
 	}
-	
+
 	// Show risky commits
 	if len(stats.RiskyCommits) > 0 {
 		fmt.Printf("Risky Commits (showing %d):\n\n", min(len(stats.RiskyCommits), limitArg))
-		
+
 		for i, commit := range stats.RiskyCommits {
 			if i >= limitArg {
 				break
 			}
-			
+
 			fmt.Printf("%d. %s — %s\n", i+1, commit.Hash, commit.Risk)
 			fmt.Printf("   Author: %s\n", commit.Author)
 			fmt.Printf("   Date: %s\n", commit.Date.Format("2006-01-02 15:04"))
@@ -392,7 +392,7 @@ func printHighRiskCommitsStats(stats *HighRiskCommitsStats, limitArg int) {
 			fmt.Printf("\n")
 		}
 	}
-	
+
 	// Recommendations
 	fmt.Printf("Recommendations:\n")
 	if stats.CriticalRisk > 0 {
@@ -404,7 +404,7 @@ func printHighRiskCommitsStats(stats *HighRiskCommitsStats, limitArg int) {
 	if stats.ModerateRisk > 0 {
 		fmt.Printf("  • %d moderate commits could benefit from more focused scope\n", stats.ModerateRisk)
 	}
-	
+
 	// Overall assessment
 	riskPercentage := float64(stats.ModerateRisk+stats.HighRisk+stats.CriticalRisk) / float64(stats.TotalCommits) * 100
 	if riskPercentage > 30 {
@@ -422,11 +422,10 @@ func trimMessage(message string) string {
 	if len(lines) == 0 {
 		return ""
 	}
-	
+
 	firstLine := lines[0]
 	if len(firstLine) > 80 {
 		return firstLine[:77] + "..."
 	}
 	return firstLine
 }
-

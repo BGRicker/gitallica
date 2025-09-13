@@ -100,11 +100,11 @@ func applyMergeCommitAdjustment(additions, deletions, parentCount int) (int, int
 	if parentCount <= 1 {
 		return additions, deletions
 	}
-	
+
 	// Apply ceiling division to both additions and deletions
 	adjustedAdditions := (additions + parentCount - 1) / parentCount
 	adjustedDeletions := (deletions + parentCount - 1) / parentCount
-	
+
 	return adjustedAdditions, adjustedDeletions
 }
 
@@ -113,31 +113,31 @@ func matchesPathFilter(filePath string, pathFilters []string) bool {
 	if len(pathFilters) == 0 {
 		return true
 	}
-	
+
 	// Normalize paths for cross-platform compatibility
 	// Convert backslashes to forward slashes first for Windows compatibility
 	cleanFilePath := strings.ReplaceAll(filePath, "\\", "/")
 	cleanFilePath = filepath.ToSlash(filepath.Clean(cleanFilePath))
-	
+
 	for _, pathFilter := range pathFilters {
 		if pathFilter == "" {
 			continue
 		}
-		
+
 		cleanPathFilter := strings.ReplaceAll(pathFilter, "\\", "/")
 		cleanPathFilter = filepath.ToSlash(filepath.Clean(cleanPathFilter))
-		
+
 		// Exact match
 		if cleanFilePath == cleanPathFilter {
 			return true
 		}
-		
+
 		// Check if file is under the specified directory (with proper directory boundary)
 		if strings.HasPrefix(cleanFilePath, cleanPathFilter+"/") {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -161,7 +161,7 @@ func commitAffectsPath(commit *object.Commit, pathFilters []string) (bool, error
 		if err != nil {
 			return false, err
 		}
-		
+
 		found := false
 		err = tree.Files().ForEach(func(f *object.File) error {
 			if matchesPathFilter(f.Name, pathFilters) {
@@ -198,7 +198,7 @@ func mergeViperConfig(source, target *viper.Viper) {
 	if source == nil || target == nil {
 		return
 	}
-	
+
 	for _, key := range source.AllKeys() {
 		target.Set(key, source.Get(key))
 	}
@@ -211,14 +211,14 @@ func getConfigPaths(cmd *cobra.Command, configKey string) ([]string, string) {
 	if len(pathArgs) > 0 {
 		return pathArgs, "(from CLI)"
 	}
-	
+
 	// Fall back to config file
 	if viper.IsSet(configKey) {
 		if paths := viper.GetStringSlice(configKey); len(paths) > 0 {
 			return paths, "(from config)"
 		}
 	}
-	
+
 	return []string{}, ""
 }
 
@@ -227,7 +227,7 @@ func titleCase(s string) string {
 	if s == "" {
 		return s
 	}
-	
+
 	words := strings.Fields(s)
 	for i, word := range words {
 		if len(word) > 0 {
@@ -242,7 +242,7 @@ func expandTimeWindow(lastArg string) string {
 	if lastArg == "" {
 		return "all time"
 	}
-	
+
 	// Handle common abbreviations
 	switch lastArg {
 	case "1d":
@@ -284,13 +284,13 @@ func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, p
 	if viper.ConfigFileUsed() != "" {
 		fmt.Fprintf(os.Stderr, "Using config file: %s\n", viper.ConfigFileUsed())
 	}
-	
+
 	// Print command scope header
 	fmt.Fprintf(os.Stderr, "=== %s Analysis Scope ===\n", titleCase(strings.ReplaceAll(commandName, "-", " ")))
-	
+
 	// Print time window with expanded format
 	fmt.Fprintf(os.Stderr, "Time window: %s\n", expandTimeWindow(lastArg))
-	
+
 	// Print path filters with source
 	if len(pathFilters) > 0 {
 		label := "Path filter:"
@@ -301,7 +301,6 @@ func printCommandScope(cmd *cobra.Command, commandName string, lastArg string, p
 	} else {
 		fmt.Fprintf(os.Stderr, "Path filter: all files\n")
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "\n")
 }
-

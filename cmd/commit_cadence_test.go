@@ -94,39 +94,39 @@ func TestDetectCommitDips(t *testing.T) {
 
 func TestClassifyTrendDirection(t *testing.T) {
 	tests := []struct {
-		name           string
-		slope          float64
-		expectedTrend  string
+		name             string
+		slope            float64
+		expectedTrend    string
 		expectedStrength float64
 	}{
 		{
-			name:           "strong increasing trend",
-			slope:          2.5,
-			expectedTrend:  "Increasing",
+			name:             "strong increasing trend",
+			slope:            2.5,
+			expectedTrend:    "Increasing",
 			expectedStrength: 2.5,
 		},
 		{
-			name:           "mild increasing trend",
-			slope:          0.3,
-			expectedTrend:  "Increasing",
+			name:             "mild increasing trend",
+			slope:            0.3,
+			expectedTrend:    "Increasing",
 			expectedStrength: 0.3,
 		},
 		{
-			name:           "stable trend",
-			slope:          0.05,
-			expectedTrend:  "Stable",
+			name:             "stable trend",
+			slope:            0.05,
+			expectedTrend:    "Stable",
 			expectedStrength: 0.05,
 		},
 		{
-			name:           "mild decreasing trend",
-			slope:          -0.4,
-			expectedTrend:  "Decreasing",
+			name:             "mild decreasing trend",
+			slope:            -0.4,
+			expectedTrend:    "Decreasing",
 			expectedStrength: 0.4, // Absolute value
 		},
 		{
-			name:           "strong decreasing trend",
-			slope:          -1.8,
-			expectedTrend:  "Decreasing",
+			name:             "strong decreasing trend",
+			slope:            -1.8,
+			expectedTrend:    "Decreasing",
 			expectedStrength: 1.8, // Absolute value
 		},
 	}
@@ -134,11 +134,11 @@ func TestClassifyTrendDirection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trend, strength := classifyTrendDirection(tt.slope)
-			
+
 			if trend != tt.expectedTrend {
 				t.Errorf("Expected trend = %s, got %s", tt.expectedTrend, trend)
 			}
-			
+
 			tolerance := 0.01
 			if abs(strength-tt.expectedStrength) > tolerance {
 				t.Errorf("Expected strength ≈ %.2f, got %.2f", tt.expectedStrength, strength)
@@ -193,7 +193,7 @@ func TestClassifySustainabilityLevel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			level := classifySustainabilityLevel(tt.avgCommits, tt.spikeCount, tt.dipCount, tt.trendDirection)
-			
+
 			if level != tt.expected {
 				t.Errorf("Expected sustainability level = %s, got %s", tt.expected, level)
 			}
@@ -237,7 +237,7 @@ func TestCommitCadenceEdgeCases(t *testing.T) {
 	// Test empty periods
 	emptyPeriods := []TimePeriod{}
 	stats := calculateCommitCadenceStats(emptyPeriods)
-	
+
 	if stats.TotalCommits != 0 {
 		t.Errorf("Expected TotalCommits = 0 for empty periods, got %d", stats.TotalCommits)
 	}
@@ -250,7 +250,7 @@ func TestCommitCadenceEdgeCases(t *testing.T) {
 		{Start: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), End: time.Date(2024, 1, 7, 23, 59, 59, 0, time.UTC), CommitCount: 10},
 	}
 	singleStats := calculateCommitCadenceStats(singlePeriod)
-	
+
 	if singleStats.TotalCommits != 10 {
 		t.Errorf("Expected TotalCommits = 10 for single period, got %d", singleStats.TotalCommits)
 	}

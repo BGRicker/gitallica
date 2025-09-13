@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
+	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/storer"
-	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/spf13/cobra"
 )
 
@@ -59,8 +59,8 @@ var componentTypes = map[string]ComponentType{
 		Description: "ES6+ classes and TypeScript classes",
 	},
 	"react-component": {
-		Name:        "React Component",
-		Patterns:    []*regexp.Regexp{
+		Name: "React Component",
+		Patterns: []*regexp.Regexp{
 			// Match class components: class Foo extends React.Component
 			regexp.MustCompile(`\bclass\s+\w+\s+extends\s+(React\.)?Component\b`),
 			// Match functions that return JSX: return <Something ... or
@@ -84,8 +84,8 @@ var componentTypes = map[string]ComponentType{
 		Description: "Rails controllers",
 	},
 	"ruby-service": {
-		Name:        "Ruby Service",
-		Patterns:    []*regexp.Regexp{
+		Name: "Ruby Service",
+		Patterns: []*regexp.Regexp{
 			regexp.MustCompile(`class\s+\w+Service`),
 			regexp.MustCompile(`class\s+\w+\s*<\s*Service`),
 		},
@@ -128,7 +128,7 @@ var componentTypes = map[string]ComponentType{
 func detectComponentsInFile(filePath string, content string) map[string]int {
 	detected := make(map[string]int)
 	ext := strings.ToLower(filepath.Ext(filePath))
-	
+
 	for typeKey, componentType := range componentTypes {
 		// Check if file extension matches
 		extensionMatch := false
@@ -138,11 +138,11 @@ func detectComponentsInFile(filePath string, content string) map[string]int {
 				break
 			}
 		}
-		
+
 		if !extensionMatch {
 			continue
 		}
-		
+
 		// Check patterns
 		for _, pattern := range componentType.Patterns {
 			matches := pattern.FindAllString(content, -1)
@@ -151,7 +151,7 @@ func detectComponentsInFile(filePath string, content string) map[string]int {
 			}
 		}
 	}
-	
+
 	return detected
 }
 
@@ -161,20 +161,20 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
 	}
-	
+
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return nil, fmt.Errorf("could not get commits: %v", err)
 	}
 	defer cIter.Close()
-	
+
 	componentStats := make(map[string]*ComponentCreationStats)
-	
+
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if !since.IsZero() && c.Committer.When.Before(since) {
 			return storer.ErrStop
 		}
-		
+
 		// Get parent commit to compare changes
 		var parentTree *object.Tree
 		if len(c.ParentHashes) > 0 {
@@ -183,45 +183,45 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 				parentTree, _ = parent.Tree()
 			}
 		}
-		
+
 		// Get current tree
 		tree, err := c.Tree()
 		if err != nil {
 			return nil
 		}
-		
+
 		// Skip initial commit (no parent) to avoid false positives in component detection
 		if parentTree == nil {
 			return nil
 		}
-		
+
 		// Analyze only added/modified files using diff
 		changes, err := tree.Diff(parentTree)
 		if err != nil {
 			return nil
 		}
-		
+
 		for _, change := range changes {
 			if change.To.Name == "" {
 				continue // skip deletions
 			}
-			
+
 			file, err := tree.File(change.To.Name)
 			if err != nil {
 				continue
 			}
-			
+
 			// Skip binary files
 			isBinary, err := file.IsBinary()
 			if err != nil || isBinary {
 				continue
 			}
-			
+
 			// Filter by framework if specified - check file extension
 			if framework != "" {
 				ext := strings.ToLower(filepath.Ext(file.Name))
 				frameworkMatch := false
-				
+
 				// Check if file extension matches framework
 				switch framework {
 				case "javascript":
@@ -237,18 +237,18 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 				case "csharp":
 					frameworkMatch = ext == ".cs"
 				}
-				
+
 				if !frameworkMatch {
 					continue
 				}
 			}
-			
+
 			// Get the diff patch to analyze only added lines
 			patch, err := change.Patch()
 			if err != nil {
 				continue
 			}
-			
+
 			// Extract only added lines from the patch
 			var addedContent strings.Builder
 			for _, filePatch := range patch.FilePatches() {
@@ -264,12 +264,12 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 					addedContent.WriteString(chunk.Content())
 				}
 			}
-			
+
 			// Only analyze if there are added lines
 			if addedContent.Len() == 0 {
 				continue
 			}
-			
+
 			// Detect components in added content only
 			detected := detectComponentsInFile(file.Name, addedContent.String())
 			for componentType, count := range detected {
@@ -305,24 +305,24 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 				}
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("error analyzing commits: %v", err)
 	}
-	
+
 	// Convert to slice and sort by count
 	var result []ComponentCreationStats
 	for _, stats := range componentStats {
 		result = append(result, *stats)
 	}
-	
+
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].Count > result[j].Count
 	})
-	
+
 	return result, nil
 }
 
@@ -330,24 +330,24 @@ func analyzeComponentCreation(repo *git.Repository, since time.Time, framework s
 func calculateCreationRate(stats []ComponentCreationStats, timeWindow string) ComponentCreationRate {
 	totalCreated := 0
 	byType := make(map[string]int)
-	
+
 	for _, stat := range stats {
 		totalCreated += stat.Count
 		byType[stat.ComponentType] = stat.Count
 	}
-	
+
 	rate := ComponentCreationRate{
 		TimeWindow:   timeWindow,
 		TotalCreated: totalCreated,
 		ByType:       byType,
 	}
-	
+
 	// Simple spike detection: if more than threshold components created in recent period
 	if totalCreated > componentCreationSpikeThreshold {
 		rate.SpikeDetected = true
 		rate.SpikeReason = fmt.Sprintf("High component creation rate: %d components (threshold: %d)", totalCreated, componentCreationSpikeThreshold)
 	}
-	
+
 	return rate
 }
 
@@ -359,18 +359,18 @@ func printComponentCreationStats(stats []ComponentCreationStats, rate ComponentC
 		fmt.Printf("Framework filter: %s\n", framework)
 	}
 	fmt.Printf("Total components created: %d\n", rate.TotalCreated)
-	
+
 	if rate.SpikeDetected {
 		fmt.Printf("⚠️  %s\n", rate.SpikeReason)
 	} else {
 		fmt.Printf("✅ Healthy component creation rate\n")
 	}
-	
+
 	fmt.Printf("\nContext: %s\n", componentCreationContext)
 	fmt.Printf("\nTop components by creation count:\n")
 	fmt.Printf("Component Type                    Count Files\n")
 	fmt.Printf("---------------------------------- ----- -----\n")
-	
+
 	for _, stat := range stats {
 		if len(stat.Files) > 0 {
 			componentName := componentTypes[stat.ComponentType].Name
@@ -398,11 +398,11 @@ Supports multiple frameworks:
 		if err != nil {
 			log.Fatalf("Could not open repository: %v", err)
 		}
-		
+
 		lastArg, _ := cmd.Flags().GetString("last")
 		frameworkArg, _ := cmd.Flags().GetString("framework")
 		limitArg, _ := cmd.Flags().GetInt("limit")
-		
+
 		since := time.Time{}
 		if lastArg != "" {
 			cutoff, err := parseDurationArg(lastArg)
@@ -411,22 +411,22 @@ Supports multiple frameworks:
 			}
 			since = cutoff
 		}
-		
+
 		stats, err := analyzeComponentCreation(repo, since, frameworkArg)
 		if err != nil {
 			log.Fatalf("Error analyzing component creation: %v", err)
 		}
-		
+
 		// Limit results if specified
 		if limitArg > 0 && len(stats) > limitArg {
 			stats = stats[:limitArg]
 		}
-		
+
 		timeWindow := "all time"
 		if !since.IsZero() {
 			timeWindow = fmt.Sprintf("last %s", lastArg)
 		}
-		
+
 		rate := calculateCreationRate(stats, timeWindow)
 		printComponentCreationStats(stats, rate, frameworkArg)
 	},

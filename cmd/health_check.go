@@ -41,13 +41,13 @@ const (
 
 // HealthIssue represents a single health issue found in the codebase
 type HealthIssue struct {
-	Category    string  // e.g., "Code Quality", "Performance", "Risk"
-	Metric      string  // e.g., "churn", "bus-factor"
-	Severity    string  // "Critical", "High", "Medium", "Low"
-	Score       int     // 1-100 severity score
-	Description string  // Human-readable description
+	Category       string // e.g., "Code Quality", "Performance", "Risk"
+	Metric         string // e.g., "churn", "bus-factor"
+	Severity       string // "Critical", "High", "Medium", "Low"
+	Score          int    // 1-100 severity score
+	Description    string // Human-readable description
 	Recommendation string // Actionable recommendation
-	Details     string  // Additional context or data
+	Details        string // Additional context or data
 }
 
 // HealthReport represents the overall health check results
@@ -107,18 +107,18 @@ func categorizeIssue(metric string) string {
 // analyzeChurnHealth checks churn patterns for issues
 func analyzeChurnHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
-	
+
 	// Run churn analysis
 	ref, err := repo.Head()
 	if err != nil {
 		return issues
 	}
-	
+
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return issues
 	}
-	
+
 	var additions, deletions int
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if !since.IsZero() && c.Committer.When.Before(since) {
@@ -136,7 +136,7 @@ func analyzeChurnHealth(repo *git.Repository, since time.Time, pathFilters []str
 	if err != nil {
 		return issues
 	}
-	
+
 	// Calculate churn percentage
 	headCommit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
@@ -146,7 +146,7 @@ func analyzeChurnHealth(repo *git.Repository, since time.Time, pathFilters []str
 	if err != nil {
 		return issues
 	}
-	
+
 	var totalLOC int
 	tree.Files().ForEach(func(f *object.File) error {
 		if !matchesPathFilter(f.Name, pathFilters) {
@@ -163,69 +163,69 @@ func analyzeChurnHealth(repo *git.Repository, since time.Time, pathFilters []str
 		totalLOC += countLines(content)
 		return nil
 	})
-	
+
 	if totalLOC > 0 {
 		churnPercent := float64(additions+deletions) / float64(totalLOC) * 100
-		
+
 		if churnPercent > float64(churnCautionThreshold) {
 			severity := "Medium"
 			if churnPercent > float64(churnCautionThreshold)*2 {
 				severity = "High"
 			}
-			
+
 			issues = append(issues, HealthIssue{
-				Category:      "Code Stability",
-				Metric:        "churn",
-				Severity:      severity,
-				Score:         getSeverityScore(severity),
-				Description:   fmt.Sprintf("High code churn detected: %.1f%%", churnPercent),
+				Category:       "Code Stability",
+				Metric:         "churn",
+				Severity:       severity,
+				Score:          getSeverityScore(severity),
+				Description:    fmt.Sprintf("High code churn detected: %.1f%%", churnPercent),
 				Recommendation: "Review recent changes for architectural instability or frequent refactoring needs",
-				Details:       fmt.Sprintf("Additions: %d, Deletions: %d, Total LOC: %d", additions, deletions, totalLOC),
+				Details:        fmt.Sprintf("Additions: %d, Deletions: %d, Total LOC: %d", additions, deletions, totalLOC),
 			})
 		}
 	}
-	
+
 	return issues
 }
 
 // analyzeTestRatioHealth checks test coverage for issues
 func analyzeTestRatioHealth(repo *git.Repository, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
-	
+
 	stats, err := analyzeTestRatio(repo, pathFilters)
 	if err != nil {
 		return issues
 	}
-	
+
 	if stats.TestRatio < testRatioMinimumThreshold {
 		severity := "Critical"
 		if stats.TestRatio > 0.25 {
 			severity = "High"
 		}
-		
+
 		issues = append(issues, HealthIssue{
-			Category:      "Code Quality",
-			Metric:        "test-ratio",
-			Severity:      severity,
-			Score:         getSeverityScore(severity),
-			Description:   fmt.Sprintf("Low test coverage: %.2f:1 ratio", stats.TestRatio),
+			Category:       "Code Quality",
+			Metric:         "test-ratio",
+			Severity:       severity,
+			Score:          getSeverityScore(severity),
+			Description:    fmt.Sprintf("Low test coverage: %.2f:1 ratio", stats.TestRatio),
 			Recommendation: "Increase test coverage significantly",
-			Details:       fmt.Sprintf("Test LOC: %d, Source LOC: %d", stats.TestLOC, stats.SourceLOC),
+			Details:        fmt.Sprintf("Test LOC: %d, Source LOC: %d", stats.TestLOC, stats.SourceLOC),
 		})
 	}
-	
+
 	return issues
 }
 
 // analyzeBusFactorHealth checks knowledge concentration for issues
 func analyzeBusFactorHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
-	
+
 	analysis, err := analyzeBusFactor(repo, since, pathFilters)
 	if err != nil {
 		return issues
 	}
-	
+
 	// Check for high-risk directories
 	for _, dir := range analysis.OverallRiskDirs {
 		if dir.RiskLevel == "Critical" || dir.RiskLevel == "High" {
@@ -234,19 +234,19 @@ func analyzeBusFactorHealth(repo *git.Repository, since time.Time, pathFilters [
 			if len(dir.AuthorLines) == 1 {
 				recommendation = "Consider: This is normal for solo projects. Plan for knowledge sharing as team grows."
 			}
-			
+
 			issues = append(issues, HealthIssue{
-				Category:      "Knowledge Management",
-				Metric:        "bus-factor",
-				Severity:      dir.RiskLevel,
-				Score:         getSeverityScore(dir.RiskLevel),
-				Description:   fmt.Sprintf("Knowledge concentration risk in %s", dir.Path),
+				Category:       "Knowledge Management",
+				Metric:         "bus-factor",
+				Severity:       dir.RiskLevel,
+				Score:          getSeverityScore(dir.RiskLevel),
+				Description:    fmt.Sprintf("Knowledge concentration risk in %s", dir.Path),
 				Recommendation: recommendation,
-				Details:       fmt.Sprintf("Bus factor: %d, Contributors: %d", dir.BusFactor, len(dir.AuthorLines)),
+				Details:        fmt.Sprintf("Bus factor: %d, Contributors: %d", dir.BusFactor, len(dir.AuthorLines)),
 			})
 		}
 	}
-	
+
 	return issues
 }
 
@@ -256,13 +256,13 @@ func getRealProjectAge(repo *git.Repository) (time.Duration, error) {
 	if err != nil {
 		return 0, err
 	}
-	
+
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return 0, err
 	}
 	defer cIter.Close()
-	
+
 	var firstCommitTime time.Time
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if firstCommitTime.IsZero() || c.Committer.When.Before(firstCommitTime) {
@@ -270,30 +270,30 @@ func getRealProjectAge(repo *git.Repository) (time.Duration, error) {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return time.Since(firstCommitTime), nil
 }
 
 // analyzeDeadZonesHealth checks for stale code
 func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
-	
+
 	// Skip dead zone analysis for very new projects (less than 3 months old)
 	// This prevents false positives for newly created files
 	projectAge, err := getRealProjectAge(repo)
 	if err == nil && projectAge < newProjectThreshold {
 		return issues // Skip dead zone analysis for new projects
 	}
-	
+
 	analysis, err := analyzeDeadZones(repo, since, pathFilters)
 	if err != nil {
 		return issues
 	}
-	
+
 	if analysis.DeadZoneCount > 0 {
 		// Check for high-risk dead zones
 		highRiskCount := 0
@@ -302,77 +302,77 @@ func analyzeDeadZonesHealth(repo *git.Repository, since time.Time, pathFilters [
 				highRiskCount++
 			}
 		}
-		
+
 		if highRiskCount > 0 {
 			issues = append(issues, HealthIssue{
-				Category:      "Technical Debt",
-				Metric:        "dead-zones",
-				Severity:      "Medium",
-				Score:         getSeverityScore("Medium"),
-				Description:   fmt.Sprintf("%d high-risk dead zone files detected", highRiskCount),
+				Category:       "Technical Debt",
+				Metric:         "dead-zones",
+				Severity:       "Medium",
+				Score:          getSeverityScore("Medium"),
+				Description:    fmt.Sprintf("%d high-risk dead zone files detected", highRiskCount),
 				Recommendation: "Review and refactor or remove stale code",
-				Details:       fmt.Sprintf("Total dead zones: %d (%.1f%% of codebase)", analysis.DeadZoneCount, analysis.DeadZonePercent),
+				Details:        fmt.Sprintf("Total dead zones: %d (%.1f%% of codebase)", analysis.DeadZoneCount, analysis.DeadZonePercent),
 			})
 		}
 	}
-	
+
 	return issues
 }
 
 // analyzeCommitSizeHealth checks for risky commits
 func analyzeCommitSizeHealth(repo *git.Repository, since time.Time, pathFilters []string) []HealthIssue {
 	var issues []HealthIssue
-	
+
 	ref, err := repo.Head()
 	if err != nil {
 		return issues
 	}
-	
+
 	cIter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
 	if err != nil {
 		return issues
 	}
-	
+
 	criticalCommits := 0
 	highRiskCommits := 0
-	
+
 	err = cIter.ForEach(func(c *object.Commit) error {
 		if !since.IsZero() && c.Committer.When.Before(since) {
 			return nil
 		}
-		
+
 		additions, deletions, filesChanged, err := processCommitForSize(c, pathFilters)
 		if err != nil {
 			return nil
 		}
-		
+
 		riskLevel, _ := calculateCommitRisk(additions, deletions, filesChanged)
 		if riskLevel == "Critical" {
 			criticalCommits++
 		} else if riskLevel == "High" {
 			highRiskCommits++
 		}
-		
+
 		return nil
 	})
-	
+
 	if criticalCommits > 0 || highRiskCommits > 0 {
 		severity := "Medium"
 		if criticalCommits > 0 {
 			severity = "High"
 		}
-		
+
 		issues = append(issues, HealthIssue{
-			Category:      "Development Practices",
-			Metric:        "commit-size",
-			Severity:      severity,
-			Score:         getSeverityScore(severity),
-			Description:   fmt.Sprintf("Large commits detected: %d critical, %d high-risk", criticalCommits, highRiskCommits),
+			Category:       "Development Practices",
+			Metric:         "commit-size",
+			Severity:       severity,
+			Score:          getSeverityScore(severity),
+			Description:    fmt.Sprintf("Large commits detected: %d critical, %d high-risk", criticalCommits, highRiskCommits),
 			Recommendation: "Break down large commits into smaller, focused changes",
-			Details:       "Large commits reduce review effectiveness and increase rollback risk",
+			Details:        "Large commits reduce review effectiveness and increase rollback risk",
 		})
 	}
-	
+
 	return issues
 }
 
@@ -381,9 +381,9 @@ func generateHealthSummary(report *HealthReport) string {
 	if report.TotalIssues == 0 {
 		return "✅ Excellent! No significant issues detected. Your codebase appears healthy."
 	}
-	
+
 	var summary strings.Builder
-	
+
 	if report.CriticalIssues > 0 {
 		issueWord := "issue"
 		requireWord := "requires"
@@ -416,7 +416,7 @@ func generateHealthSummary(report *HealthReport) string {
 		}
 		summary.WriteString(fmt.Sprintf("💡 %d low-priority %s can be addressed when convenient.", report.LowIssues, issueWord))
 	}
-	
+
 	return summary.String()
 }
 
@@ -428,25 +428,25 @@ func printHealthReport(report *HealthReport) {
 	fmt.Printf("Time Window: %s\n", report.TimeWindow)
 	fmt.Printf("Total Issues Found: %d\n", report.TotalIssues)
 	fmt.Println()
-	
+
 	// Summary
 	fmt.Printf("📊 Summary:\n%s\n\n", report.Summary)
-	
+
 	if report.TotalIssues == 0 {
 		return
 	}
-	
+
 	// Group issues by category
 	categories := make(map[string][]HealthIssue)
 	for _, issue := range report.Issues {
 		categories[issue.Category] = append(categories[issue.Category], issue)
 	}
-	
+
 	// Print issues by category
 	for category, categoryIssues := range categories {
 		fmt.Printf("📁 %s (%d issues)\n", category, len(categoryIssues))
 		fmt.Printf("%s\n", strings.Repeat("-", len(category)+20))
-		
+
 		for _, issue := range categoryIssues {
 			emoji := "🔴"
 			switch issue.Severity {
@@ -459,7 +459,7 @@ func printHealthReport(report *HealthReport) {
 			case "Low":
 				emoji = "🔵"
 			}
-			
+
 			fmt.Printf("%s [%s] %s\n", emoji, issue.Severity, issue.Description)
 			fmt.Printf("   💡 %s\n", issue.Recommendation)
 			if issue.Details != "" {
@@ -468,7 +468,7 @@ func printHealthReport(report *HealthReport) {
 			fmt.Println()
 		}
 	}
-	
+
 	// Top 3 priorities
 	if len(report.Issues) > 0 {
 		fmt.Printf("🎯 Top 3 Priorities:\n")
@@ -481,25 +481,25 @@ func printHealthReport(report *HealthReport) {
 // performHealthCheck runs all health checks and returns a comprehensive report
 func performHealthCheck(repo *git.Repository, since time.Time, pathFilters []string) (*HealthReport, error) {
 	var allIssues []HealthIssue
-	
+
 	// Run all health checks
 	allIssues = append(allIssues, analyzeChurnHealth(repo, since, pathFilters)...)
 	allIssues = append(allIssues, analyzeTestRatioHealth(repo, pathFilters)...)
 	allIssues = append(allIssues, analyzeBusFactorHealth(repo, since, pathFilters)...)
 	allIssues = append(allIssues, analyzeDeadZonesHealth(repo, since, pathFilters)...)
 	allIssues = append(allIssues, analyzeCommitSizeHealth(repo, since, pathFilters)...)
-	
+
 	// Sort issues by severity score (highest first)
 	sort.Slice(allIssues, func(i, j int) bool {
 		return allIssues[i].Score > allIssues[j].Score
 	})
-	
+
 	// Count issues by severity
 	criticalCount := 0
 	highCount := 0
 	mediumCount := 0
 	lowCount := 0
-	
+
 	for _, issue := range allIssues {
 		switch issue.Severity {
 		case "Critical":
@@ -512,12 +512,12 @@ func performHealthCheck(repo *git.Repository, since time.Time, pathFilters []str
 			lowCount++
 		}
 	}
-	
+
 	timeWindow := "all time"
 	if !since.IsZero() {
 		timeWindow = fmt.Sprintf("since %s", since.Format("2006-01-02"))
 	}
-	
+
 	report := &HealthReport{
 		RepositoryPath: ".",
 		AnalysisTime:   time.Now(),
@@ -529,9 +529,9 @@ func performHealthCheck(repo *git.Repository, since time.Time, pathFilters []str
 		LowIssues:      lowCount,
 		Issues:         allIssues,
 	}
-	
+
 	report.Summary = generateHealthSummary(report)
-	
+
 	return report, nil
 }
 
@@ -558,7 +558,7 @@ Issues are ranked by severity and categorized for easy prioritization.`,
 		// Parse flags
 		lastArg, _ := cmd.Flags().GetString("last")
 		pathFilters, source := getConfigPaths(cmd, "health-check.paths")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "health-check", lastArg, pathFilters, source)
 

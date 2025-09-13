@@ -33,8 +33,8 @@ const (
 
 // AuthorMapping represents a mapping from various email/name patterns to a canonical author
 type AuthorMapping struct {
-	Patterns []string // Email or name patterns to match
-	Canonical string  // Canonical email address to use
+	Patterns  []string // Email or name patterns to match
+	Canonical string   // Canonical email address to use
 }
 
 // DefaultAuthorMappings contains the default author normalization mappings.

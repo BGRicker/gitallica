@@ -28,7 +28,7 @@ import (
 
 func TestCalculateFileAge(t *testing.T) {
 	now := time.Now()
-	
+
 	tests := []struct {
 		name           string
 		lastModified   time.Time
@@ -79,55 +79,55 @@ func TestCalculateFileAge(t *testing.T) {
 
 func TestIsDeadZone(t *testing.T) {
 	now := time.Now()
-	
+
 	tests := []struct {
-		name         string
-		lastModified time.Time
+		name          string
+		lastModified  time.Time
 		referenceTime time.Time
-		expected     bool
-		description  string
+		expected      bool
+		description   string
 	}{
 		{
-			name:         "fresh file (1 month old)",
-			lastModified: now.AddDate(0, -1, 0),
+			name:          "fresh file (1 month old)",
+			lastModified:  now.AddDate(0, -1, 0),
 			referenceTime: now,
-			expected:     false,
-			description:  "Recent files should not be dead zones",
+			expected:      false,
+			description:   "Recent files should not be dead zones",
 		},
 		{
-			name:         "borderline file (11 months old)",
-			lastModified: now.AddDate(0, -11, 0),
+			name:          "borderline file (11 months old)",
+			lastModified:  now.AddDate(0, -11, 0),
 			referenceTime: now,
-			expected:     false,
-			description:  "Files just under 12 months should not be dead zones",
+			expected:      false,
+			description:   "Files just under 12 months should not be dead zones",
 		},
 		{
-			name:         "exactly 12 months old",
-			lastModified: now.AddDate(0, -12, 0),
+			name:          "exactly 12 months old",
+			lastModified:  now.AddDate(0, -12, 0),
 			referenceTime: now,
-			expected:     true,
-			description:  "Files exactly 12 months old should be dead zones",
+			expected:      true,
+			description:   "Files exactly 12 months old should be dead zones",
 		},
 		{
-			name:         "old file (18 months old)",
-			lastModified: now.AddDate(0, -18, 0),
+			name:          "old file (18 months old)",
+			lastModified:  now.AddDate(0, -18, 0),
 			referenceTime: now,
-			expected:     true,
-			description:  "Files older than 12 months should be dead zones",
+			expected:      true,
+			description:   "Files older than 12 months should be dead zones",
 		},
 		{
-			name:         "very old file (2 years old)",
-			lastModified: now.AddDate(-2, 0, 0),
+			name:          "very old file (2 years old)",
+			lastModified:  now.AddDate(-2, 0, 0),
 			referenceTime: now,
-			expected:     true,
-			description:  "Very old files should definitely be dead zones",
+			expected:      true,
+			description:   "Very old files should definitely be dead zones",
 		},
 		{
-			name:         "future file (edge case)",
-			lastModified: now.AddDate(0, 1, 0),
+			name:          "future file (edge case)",
+			lastModified:  now.AddDate(0, 1, 0),
 			referenceTime: now,
-			expected:     false,
-			description:  "Future dates should not be dead zones",
+			expected:      false,
+			description:   "Future dates should not be dead zones",
 		},
 	}
 
@@ -195,42 +195,42 @@ func TestClassifyDeadZoneRisk(t *testing.T) {
 
 func TestDeadZoneFileStats(t *testing.T) {
 	now := time.Now()
-	
+
 	tests := []struct {
-		name         string
-		path         string
-		lastModified time.Time
-		size         int64
+		name          string
+		path          string
+		lastModified  time.Time
+		size          int64
 		referenceTime time.Time
-		expectedDead bool
-		expectedAge  int
+		expectedDead  bool
+		expectedAge   int
 	}{
 		{
-			name:         "small active file",
-			path:         "src/active.go",
-			lastModified: now.AddDate(0, -3, 0),
-			size:         1000,
+			name:          "small active file",
+			path:          "src/active.go",
+			lastModified:  now.AddDate(0, -3, 0),
+			size:          1000,
 			referenceTime: now,
-			expectedDead: false,
-			expectedAge:  3,
+			expectedDead:  false,
+			expectedAge:   3,
 		},
 		{
-			name:         "large dead file",
-			path:         "legacy/old.go",
-			lastModified: now.AddDate(0, -15, 0),
-			size:         5000,
+			name:          "large dead file",
+			path:          "legacy/old.go",
+			lastModified:  now.AddDate(0, -15, 0),
+			size:          5000,
 			referenceTime: now,
-			expectedDead: true,
-			expectedAge:  15,
+			expectedDead:  true,
+			expectedAge:   15,
 		},
 		{
-			name:         "config file dead zone",
-			path:         "config/deprecated.yaml",
-			lastModified: now.AddDate(0, -24, 0),
-			size:         500,
+			name:          "config file dead zone",
+			path:          "config/deprecated.yaml",
+			lastModified:  now.AddDate(0, -24, 0),
+			size:          500,
 			referenceTime: now,
-			expectedDead: true,
-			expectedAge:  24,
+			expectedDead:  true,
+			expectedAge:   24,
 		},
 	}
 
@@ -241,19 +241,19 @@ func TestDeadZoneFileStats(t *testing.T) {
 				LastModified: tt.lastModified,
 				Size:         tt.size,
 			}
-			
+
 			// Calculate age and dead zone status
 			age := calculateFileAge(tt.lastModified, tt.referenceTime)
 			isDead := isDeadZone(tt.lastModified, tt.referenceTime)
-			
+
 			if age != tt.expectedAge {
 				t.Errorf("Expected age %d months, got %d", tt.expectedAge, age)
 			}
-			
+
 			if isDead != tt.expectedDead {
 				t.Errorf("Expected dead zone status %v, got %v", tt.expectedDead, isDead)
 			}
-			
+
 			if stats.Path != tt.path {
 				t.Errorf("Expected path %s, got %s", tt.path, stats.Path)
 			}
@@ -263,7 +263,7 @@ func TestDeadZoneFileStats(t *testing.T) {
 
 func TestSortDeadZonesByAge(t *testing.T) {
 	now := time.Now()
-	
+
 	files := []DeadZoneFileStats{
 		{Path: "new.go", LastModified: now.AddDate(0, -13, 0), AgeInMonths: 13},
 		{Path: "very_old.go", LastModified: now.AddDate(0, -30, 0), AgeInMonths: 30},
@@ -289,11 +289,11 @@ func TestDeadZoneThresholds(t *testing.T) {
 	if deadZoneThresholdMonths != 12 {
 		t.Errorf("Expected dead zone threshold to be 12 months, got %d", deadZoneThresholdMonths)
 	}
-	
+
 	if deadZoneLowRiskThresholdMonths != 24 {
 		t.Errorf("Expected low risk threshold to be 24 months, got %d", deadZoneLowRiskThresholdMonths)
 	}
-	
+
 	if deadZoneHighRiskThresholdMonths != 36 {
 		t.Errorf("Expected high risk threshold to be 36 months, got %d", deadZoneHighRiskThresholdMonths)
 	}
@@ -301,7 +301,7 @@ func TestDeadZoneThresholds(t *testing.T) {
 
 func TestDeadZoneEdgeCases(t *testing.T) {
 	now := time.Now()
-	
+
 	t.Run("zero time", func(t *testing.T) {
 		age := calculateFileAge(time.Time{}, now)
 		// Should handle zero time gracefully
@@ -309,14 +309,14 @@ func TestDeadZoneEdgeCases(t *testing.T) {
 			t.Errorf("Expected non-negative age for zero time, got %d", age)
 		}
 	})
-	
+
 	t.Run("same time", func(t *testing.T) {
 		age := calculateFileAge(now, now)
 		if age != 0 {
 			t.Errorf("Expected 0 months for same time, got %d", age)
 		}
 	})
-	
+
 	t.Run("future time", func(t *testing.T) {
 		future := now.AddDate(0, 6, 0)
 		age := calculateFileAge(future, now)

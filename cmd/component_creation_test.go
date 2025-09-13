@@ -7,10 +7,10 @@ import (
 
 func TestDetectComponentsInFile(t *testing.T) {
 	tests := []struct {
-		name           string
-		filePath       string
-		content        string
-		expectedTypes  map[string]int
+		name          string
+		filePath      string
+		content       string
+		expectedTypes map[string]int
 	}{
 		{
 			name:     "JavaScript class",
@@ -127,11 +127,11 @@ func TestDetectComponentsInFile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := detectComponentsInFile(tt.filePath, tt.content)
-			
+
 			if len(result) != len(tt.expectedTypes) {
 				t.Errorf("Expected %d component types, got %d", len(tt.expectedTypes), len(result))
 			}
-			
+
 			for expectedType, expectedCount := range tt.expectedTypes {
 				if actualCount, exists := result[expectedType]; !exists {
 					t.Errorf("Expected component type %s not found", expectedType)
@@ -187,19 +187,19 @@ func TestCalculateCreationRate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rate := calculateCreationRate(tt.stats, tt.timeWindow)
-			
+
 			if rate.TotalCreated != tt.expectedTotal {
 				t.Errorf("Expected total %d, got %d", tt.expectedTotal, rate.TotalCreated)
 			}
-			
+
 			if rate.SpikeDetected != tt.expectedSpike {
 				t.Errorf("Expected spike %v, got %v", tt.expectedSpike, rate.SpikeDetected)
 			}
-			
+
 			if rate.SpikeReason != tt.expectedReason {
 				t.Errorf("Expected reason %q, got %q", tt.expectedReason, rate.SpikeReason)
 			}
-			
+
 			if rate.TimeWindow != tt.timeWindow {
 				t.Errorf("Expected time window %q, got %q", tt.timeWindow, rate.TimeWindow)
 			}
@@ -214,19 +214,19 @@ func TestComponentTypes(t *testing.T) {
 			if componentType.Name == "" {
 				t.Errorf("Component type %s has empty name", typeKey)
 			}
-			
+
 			if len(componentType.Patterns) == 0 {
 				t.Errorf("Component type %s has no patterns", typeKey)
 			}
-			
+
 			if len(componentType.Extensions) == 0 {
 				t.Errorf("Component type %s has no extensions", typeKey)
 			}
-			
+
 			if componentType.Description == "" {
 				t.Errorf("Component type %s has no description", typeKey)
 			}
-			
+
 			// Test that patterns compile
 			for i, pattern := range componentType.Patterns {
 				if pattern == nil {
@@ -243,12 +243,12 @@ func TestComponentCreationStatsSorting(t *testing.T) {
 		{ComponentType: "high-count", Count: 10},
 		{ComponentType: "medium-count", Count: 5},
 	}
-	
+
 	// Sort by count (descending)
 	sort.Slice(stats, func(i, j int) bool {
 		return stats[i].Count > stats[j].Count
 	})
-	
+
 	expectedOrder := []string{"high-count", "medium-count", "low-count"}
 	for i, expected := range expectedOrder {
 		if stats[i].ComponentType != expected {

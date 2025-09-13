@@ -1,6 +1,5 @@
 /*
 Copyright © 2025 Ben Ricker <ben@jumboturbo.com>
-
 */
 package cmd
 
@@ -13,8 +12,8 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/spf13/cobra"
 )
 
@@ -30,8 +29,6 @@ import (
 // such collisions *extremely* unlikely in practice.
 const lineKeySeparator = "\x00"
 
-
-
 // researchNote contains a short reference used in CLI output about healthy survival rates.
 const researchNote = "Large-scale study of 3.3 billion code-line lifetimes shows median lifespan of ~2.4 years (Spinellis et al.)."
 
@@ -39,7 +36,6 @@ func makeKey(filename, line string) string {
 	sum := sha256.Sum256([]byte(line))
 	return filename + lineKeySeparator + hex.EncodeToString(sum[:])
 }
-
 
 func printSurvivalStats(totalAdded, survived int, percent float64) {
 	fmt.Printf("Survival rate:\n")
@@ -61,7 +57,7 @@ Helps spot unstable areas where code gets rewritten too frequently.`,
 		lastArg, _ := cmd.Flags().GetString("last")
 		pathFilters, source := getConfigPaths(cmd, "survival.paths")
 		debugArg, _ := cmd.Flags().GetBool("debug")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "survival", lastArg, pathFilters, source)
 

@@ -100,15 +100,15 @@ func initConfig() {
 		fmt.Fprintln(os.Stderr, "Error: could not determine current working directory:", err)
 		return
 	}
-	
+
 	// Walk up the directory tree to find project config
 	for dir := currentDir; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
 		projectViper.AddConfigPath(dir)
 	}
-	
+
 	projectViper.SetConfigType("yaml")
 	projectViper.SetConfigName(".gitallica")
-	
+
 	if err := projectViper.ReadInConfig(); err == nil {
 		// Merge project config into main viper (overrides home config)
 		mergeViperConfig(projectViper, viper.GetViper())

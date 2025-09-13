@@ -16,17 +16,17 @@ import (
 // Thresholds for long-lived branch analysis based on trunk-based development guidance
 const (
 	// Branch age thresholds (in days) - based on trunk-based development principles
-	healthyBranchMaxAge  = 1.0  // Daily merges recommended
-	warningBranchMaxAge  = 3.0  // Warning after a few days
-	criticalBranchMaxAge = 7.0  // Critical after a week
-	
+	healthyBranchMaxAge  = 1.0 // Daily merges recommended
+	warningBranchMaxAge  = 3.0 // Warning after a few days
+	criticalBranchMaxAge = 7.0 // Critical after a week
+
 	// Trunk-based compliance thresholds (percentage of healthy branches)
 	excellentComplianceThreshold = 0.8 // 80%+ healthy branches
-	goodComplianceThreshold      = 0.6 // 60%+ healthy branches  
+	goodComplianceThreshold      = 0.6 // 60%+ healthy branches
 	moderateComplianceThreshold  = 0.4 // 40%+ healthy branches
 	poorComplianceThreshold      = 0.2 // 20%+ healthy branches
 	// Below 20% is Critical
-	
+
 	// Performance limits
 	maxCommitCountLimit = 1000 // Limit to avoid excessive counting for very large branches
 )
@@ -40,28 +40,28 @@ var (
 
 // BranchInfo represents information about a Git branch
 type BranchInfo struct {
-	Name               string
-	AgeInDays          float64
-	Status             string // "active", "merged", "stale"
-	Risk               string // "Healthy", "Warning", "Risky", "Critical"
-	LastCommitAuthor   string
-	LastCommitTime     time.Time
-	CommitCount        int
-	DivergencePoint    string // Hash of the divergence commit
+	Name             string
+	AgeInDays        float64
+	Status           string // "active", "merged", "stale"
+	Risk             string // "Healthy", "Warning", "Risky", "Critical"
+	LastCommitAuthor string
+	LastCommitTime   time.Time
+	CommitCount      int
+	DivergencePoint  string // Hash of the divergence commit
 }
 
 // LongLivedBranchesStats contains analysis results for branch lifespans
 type LongLivedBranchesStats struct {
-	TotalBranches         int
-	AverageBranchAge      float64
-	HealthyBranches       int
-	WarningBranches       int
-	RiskyBranches         int
-	CriticalBranches      int
-	TrunkBasedCompliance  string // "Excellent", "Good", "Moderate", "Poor", "Critical", "Unknown"
-	OldestBranch          *BranchInfo
-	RiskyBranchDetails    []BranchInfo
-	Branches              []BranchInfo
+	TotalBranches        int
+	AverageBranchAge     float64
+	HealthyBranches      int
+	WarningBranches      int
+	RiskyBranches        int
+	CriticalBranches     int
+	TrunkBasedCompliance string // "Excellent", "Good", "Moderate", "Poor", "Critical", "Unknown"
+	OldestBranch         *BranchInfo
+	RiskyBranchDetails   []BranchInfo
+	Branches             []BranchInfo
 }
 
 // longLivedBranchesCmd represents the long-lived-branches command
@@ -94,7 +94,7 @@ The analysis identifies:
 		pathFilters, source := getConfigPaths(cmd, "long-lived-branches.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showMergedArg, _ := cmd.Flags().GetBool("show-merged")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "long-lived-branches", lastArg, pathFilters, source)
 
@@ -136,7 +136,7 @@ func analyzeLongLivedBranches(repo *git.Repository, pathFilters []string, lastAr
 
 	// Calculate comprehensive statistics
 	stats := calculateLongLivedBranchesStats(branches)
-	
+
 	return stats, nil
 }
 
@@ -175,7 +175,7 @@ func getAllBranches(repo *git.Repository, cutoffTime time.Time, pathFilters []st
 			return nil // Skip problematic branches
 		}
 
-		// Calculate branch age based on divergence point  
+		// Calculate branch age based on divergence point
 		branchAge, err := calculateBranchAgeFromDivergence(repo, ref.Hash(), head.Hash(), now)
 		if err != nil {
 			// Fallback to commit timestamp if divergence calculation fails
@@ -371,11 +371,11 @@ func isBranchMerged(repo *git.Repository, branchHash, mainHash plumbing.Hash) (b
 	if err != nil {
 		return false, err
 	}
-	
+
 	// Walk through main branch history to find if branch commit exists
 	commitIter := object.NewCommitPreorderIter(mainCommit, nil, nil)
 	defer commitIter.Close()
-	
+
 	return commitIter.ForEach(func(commit *object.Commit) error {
 		if commit.Hash == branchHash {
 			return ErrIterationComplete // Use sentinel error to break iteration

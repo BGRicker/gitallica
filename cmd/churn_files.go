@@ -37,7 +37,7 @@ import (
 
 const (
 	churnFilesHealthyThreshold = 5
-	churnFilesCautionThreshold  = 20
+	churnFilesCautionThreshold = 20
 )
 
 const churnFilesBenchmarkContext = "High relative churn correlates with higher defect density (Nagappan & Ball research)."
@@ -68,9 +68,9 @@ func calculateFileChurn(additions, deletions, totalLOC int) (float64, string) {
 	if totalLOC == 0 {
 		return 0.0, "Healthy"
 	}
-	
+
 	churnPercent := float64(additions+deletions) / float64(totalLOC) * 100
-	
+
 	var status string
 	if churnPercent <= float64(churnFilesHealthyThreshold) {
 		status = "Healthy"
@@ -79,7 +79,7 @@ func calculateFileChurn(additions, deletions, totalLOC int) (float64, string) {
 	} else {
 		status = "Warning"
 	}
-	
+
 	return churnPercent, status
 }
 
@@ -87,18 +87,18 @@ func calculateFileChurn(additions, deletions, totalLOC int) (float64, string) {
 func sortFilesByChurn(files []FileChurnStats) []FileChurnStats {
 	sorted := make([]FileChurnStats, len(files))
 	copy(sorted, files)
-	
+
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].ChurnPercent > sorted[j].ChurnPercent
 	})
-	
+
 	return sorted
 }
 
 // aggregateDirectoryChurn aggregates file-level churn into directory-level statistics.
 func aggregateDirectoryChurn(files []FileChurnStats) []DirectoryChurnStats {
 	dirMap := make(map[string]*DirectoryChurnStats)
-	
+
 	for _, file := range files {
 		dir := filepath.Dir(file.Path)
 		if dir == "." {
@@ -106,19 +106,19 @@ func aggregateDirectoryChurn(files []FileChurnStats) []DirectoryChurnStats {
 		} else {
 			dir = dir + "/"
 		}
-		
+
 		if dirMap[dir] == nil {
 			dirMap[dir] = &DirectoryChurnStats{
 				Path: dir,
 			}
 		}
-		
+
 		dirMap[dir].Additions += file.Additions
 		dirMap[dir].Deletions += file.Deletions
 		dirMap[dir].TotalLOC += file.TotalLOC
 		dirMap[dir].FileCount++
 	}
-	
+
 	// Convert map to slice and calculate percentages
 	var dirs []DirectoryChurnStats
 	for _, dir := range dirMap {
@@ -127,26 +127,26 @@ func aggregateDirectoryChurn(files []FileChurnStats) []DirectoryChurnStats {
 		dir.Status = status
 		dirs = append(dirs, *dir)
 	}
-	
+
 	// Sort by churn percentage descending
 	sort.Slice(dirs, func(i, j int) bool {
 		return dirs[i].ChurnPercent > dirs[j].ChurnPercent
 	})
-	
+
 	return dirs
 }
 
 // processCommitForFileChurn processes a single commit to extract file-level churn data.
 func processCommitForFileChurn(c *object.Commit, pathFilters []string) (map[string]FileChurnStats, error) {
 	fileStats := make(map[string]FileChurnStats)
-	
+
 	if c.NumParents() == 0 {
 		return fileStats, nil
 	}
-	
+
 	parents := c.Parents()
 	defer parents.Close()
-	
+
 	parentCount := 0
 	err := parents.ForEach(func(parent *object.Commit) error {
 		parentCount++
@@ -155,12 +155,12 @@ func processCommitForFileChurn(c *object.Commit, pathFilters []string) (map[stri
 			log.Printf("failed to generate patch between parent %s and commit %s: %v", parent.Hash.String(), c.Hash.String(), err)
 			return nil
 		}
-		
+
 		for _, stat := range patch.Stats() {
 			if !matchesPathFilter(stat.Name, pathFilters) {
 				continue
 			}
-			
+
 			if existing, exists := fileStats[stat.Name]; exists {
 				existing.Additions += stat.Addition
 				existing.Deletions += stat.Deletion
@@ -175,7 +175,7 @@ func processCommitForFileChurn(c *object.Commit, pathFilters []string) (map[stri
 		}
 		return nil
 	})
-	
+
 	// For merge commits, we need to avoid double-counting line changes
 	// that appear in multiple parent diffs. Since we're already tracking unique files,
 	// we only need to adjust line counts to estimate actual changes in the merge.
@@ -186,7 +186,7 @@ func processCommitForFileChurn(c *object.Commit, pathFilters []string) (map[stri
 			fileStats[path] = stats
 		}
 	}
-	
+
 	return fileStats, err
 }
 
@@ -196,17 +196,17 @@ func getCurrentFileSizes(repo *git.Repository, pathFilters []string) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD: %v", err)
 	}
-	
+
 	headCommit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD commit: %v", err)
 	}
-	
+
 	tree, err := headCommit.Tree()
 	if err != nil {
 		return nil, fmt.Errorf("could not get HEAD tree: %v", err)
 	}
-	
+
 	fileSizes := make(map[string]int)
 	err = tree.Files().ForEach(func(f *object.File) error {
 		// Skip binary files
@@ -217,21 +217,21 @@ func getCurrentFileSizes(repo *git.Repository, pathFilters []string) (map[string
 		if isBinary {
 			return nil
 		}
-		
+
 		// Optionally filter by path
 		if !matchesPathFilter(f.Name, pathFilters) {
 			return nil
 		}
-		
+
 		content, err := f.Contents()
 		if err != nil {
 			return nil
 		}
-		
+
 		fileSizes[f.Name] = countLines(content)
 		return nil
 	})
-	
+
 	return fileSizes, err
 }
 
@@ -240,12 +240,12 @@ func printFileChurnStats(files []FileChurnStats, limit int) {
 	fmt.Printf("\nTop %d files by churn:\n", limit)
 	fmt.Printf("%-50s %8s %8s %8s %8s %s\n", "File", "Added", "Deleted", "Total LOC", "Churn %", "Status")
 	fmt.Printf("%-50s %8s %8s %8s %8s %s\n", strings.Repeat("-", 50), "------", "-------", "---------", "-------", "------")
-	
+
 	for i, file := range files {
 		if i >= limit {
 			break
 		}
-		fmt.Printf("%-50s %8d %8d %8d %7.1f%% %s\n", 
+		fmt.Printf("%-50s %8d %8d %8d %7.1f%% %s\n",
 			file.Path, file.Additions, file.Deletions, file.TotalLOC, file.ChurnPercent, file.Status)
 	}
 }
@@ -255,12 +255,12 @@ func printDirectoryChurnStats(dirs []DirectoryChurnStats, limit int) {
 	fmt.Printf("\nTop %d directories by churn:\n", limit)
 	fmt.Printf("%-30s %8s %8s %8s %8s %6s %s\n", "Directory", "Added", "Deleted", "Total LOC", "Churn %", "Files", "Status")
 	fmt.Printf("%-30s %8s %8s %8s %8s %6s %s\n", strings.Repeat("-", 30), "------", "-------", "---------", "-------", "------", "------")
-	
+
 	for i, dir := range dirs {
 		if i >= limit {
 			break
 		}
-		fmt.Printf("%-30s %8d %8d %8d %7.1f%% %6d %s\n", 
+		fmt.Printf("%-30s %8d %8d %8d %7.1f%% %6d %s\n",
 			dir.Path, dir.Additions, dir.Deletions, dir.TotalLOC, dir.ChurnPercent, dir.FileCount, dir.Status)
 	}
 }
@@ -282,7 +282,7 @@ Thresholds:
 		pathFilters, source := getConfigPaths(cmd, "churn-files.paths")
 		limitArg, _ := cmd.Flags().GetInt("limit")
 		showDirsArg, _ := cmd.Flags().GetBool("directories")
-		
+
 		// Print configuration scope
 		printCommandScope(cmd, "churn-files", lastArg, pathFilters, source)
 
@@ -323,7 +323,7 @@ Thresholds:
 			if !since.IsZero() && c.Committer.When.Before(since) {
 				return storer.ErrStop
 			}
-			
+
 			commitFileStats, err := processCommitForFileChurn(c, pathFilters)
 			if err != nil {
 				log.Printf("Error processing commit %s: %v", c.Hash.String(), err)
@@ -349,7 +349,7 @@ Thresholds:
 		for path, stats := range allFileStats {
 			totalLOC := fileSizes[path]
 			churnPercent, status := calculateFileChurn(stats.Additions, stats.Deletions, totalLOC)
-			
+
 			stats.TotalLOC = totalLOC
 			stats.ChurnPercent = churnPercent
 			stats.Status = status
